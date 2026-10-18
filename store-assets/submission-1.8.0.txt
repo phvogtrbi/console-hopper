@@ -104,12 +104,12 @@ Two uses, both confined to AWS console pages. First, to set the per-tab favicon 
 
 --- Privacy policy URL -----------------------------------------------
 
-https://github.com/tomekklas/console-hopper/blob/main/PRIVACY.md
+https://consolehopper.com/privacy.html
 
 
 --- Official / Homepage URL ------------------------------------------
 
-https://github.com/tomekklas/console-hopper
+https://consolehopper.com/
 
 
 --- Support URL ------------------------------------------------------

@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import { $, coerceData } from "../src/content/dom.js";
+import { createSigninExpiry } from "../src/content/signin-expiry.js";
+import {
+  samlTimesFrom,
+  samlValidUntil,
+  decodeSamlResponse,
+  SAML_FRESH_MS,
+} from "../src/content/util.js";
 
 describe("$ selection", () => {
   it("selects, indexes array-like, and reports length", () => {
@@ -162,5 +169,181 @@ describe("$ removal / effects", () => {
     expect(document.getElementById("r")).toBe(null);
     await new Promise((resolve) => $("#g").fadeOut(5, resolve));
     expect(true).toBe(true);
+  });
+});
+
+describe("samlTimesFrom (jsdom DOMParser)", () => {
+  const xml = (issue, noa) => `<?xml version="1.0"?>
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" IssueInstant="${issue}">
+  <saml:Assertion IssueInstant="${issue}">
+    <saml:Subject><saml:SubjectConfirmation><saml:SubjectConfirmationData NotOnOrAfter="${noa}"/></saml:SubjectConfirmation></saml:Subject>
+  </saml:Assertion>
+</samlp:Response>`;
+
+  it("reads IssueInstant and NotOnOrAfter", () => {
+    const t = samlTimesFrom(
+      xml("2026-10-18T12:00:00Z", "2026-10-18T12:10:00Z")
+    );
+    expect(t.issueInstant).toBe(Date.parse("2026-10-18T12:00:00Z"));
+    expect(t.notOnOrAfter).toBe(Date.parse("2026-10-18T12:10:00Z"));
+  });
+
+  it("keeps the smallest NotOnOrAfter across several SubjectConfirmationData", () => {
+    const multi = `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" IssueInstant="2026-10-18T12:00:00Z">
+      <saml:SubjectConfirmationData NotOnOrAfter="2026-10-18T12:09:00Z"/>
+      <saml:SubjectConfirmationData NotOnOrAfter="2026-10-18T12:05:00Z"/>
+    </samlp:Response>`;
+    expect(samlTimesFrom(multi).notOnOrAfter).toBe(
+      Date.parse("2026-10-18T12:05:00Z")
+    );
+  });
+
+  it("returns nulls for garbage, and composes with decode + validUntil", () => {
+    expect(samlTimesFrom("not xml <<<")).toEqual({
+      issueInstant: null,
+      notOnOrAfter: null,
+    });
+    const text = xml("2026-10-18T12:00:00Z", "2026-10-18T12:10:00Z");
+    const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+    expect(samlValidUntil(samlTimesFrom(decodeSamlResponse(b64)))).toBe(
+      Date.parse("2026-10-18T12:00:00Z") + SAML_FRESH_MS
+    );
+  });
+});
+
+describe("createSigninExpiry", () => {
+  const UNTIL = 1_000_000; // arbitrary epoch ms
+  const freshRoot = () => document.createElement("html");
+  const freshBody = () => document.createElement("body");
+  const UNTIL_ATTR = "data-console-hopper-signin-until";
+  const EXPIRED_ATTR = "data-console-hopper-signin-expired";
+  const UI_ATTR = "data-console-hopper-expiry-ui";
+
+  it("publishes signin-until and expiry-ui on load; signin-expired stays absent before expiry", () => {
+    const root = freshRoot();
+    const ctl = createSigninExpiry({
+      doc: document,
+      root,
+      body: freshBody(),
+      until: UNTIL,
+      now: () => UNTIL - 5000,
+    });
+    expect(root.getAttribute(UNTIL_ATTR)).toBe(String(UNTIL));
+    expect(root.getAttribute(UI_ATTR)).toBe("1");
+    expect(root.hasAttribute(EXPIRED_ATTR)).toBe(false);
+    expect(ctl.isExpired()).toBe(false);
+    ctl.tick();
+    expect(root.hasAttribute(EXPIRED_ATTR)).toBe(false);
+  });
+
+  it("sets signin-expired once the clock reaches until", () => {
+    const root = freshRoot();
+    let clock = UNTIL - 1000;
+    const ctl = createSigninExpiry({
+      doc: document,
+      root,
+      body: freshBody(),
+      until: UNTIL,
+      now: () => clock,
+    });
+    ctl.tick();
+    expect(root.hasAttribute(EXPIRED_ATTR)).toBe(false);
+    clock = UNTIL;
+    ctl.tick();
+    expect(root.getAttribute(EXPIRED_ATTR)).toBe("1");
+    expect(ctl.isExpired()).toBe(true);
+  });
+
+  it("omits signin-until for a timeless response and never expires", () => {
+    const root = freshRoot();
+    const ctl = createSigninExpiry({
+      doc: document,
+      root,
+      body: freshBody(),
+      until: null,
+      now: () => 9_999_999,
+    });
+    expect(root.hasAttribute(UNTIL_ATTR)).toBe(false);
+    expect(root.getAttribute(UI_ATTR)).toBe("1");
+    expect(ctl.isExpired()).toBe(false);
+    ctl.tick();
+    expect(root.hasAttribute(EXPIRED_ATTR)).toBe(false);
+  });
+
+  it("shows the banner at expiry: first child of body, role=alert, validated link, no key/add-on wording", () => {
+    const body = freshBody();
+    let clock = UNTIL - 1000;
+    const ctl = createSigninExpiry({
+      doc: document,
+      root: freshRoot(),
+      body,
+      until: UNTIL,
+      idpOrigin: "https://acme.okta.com",
+      now: () => clock,
+    });
+    ctl.tick();
+    expect(ctl.bannerEl()).toBeNull();
+
+    clock = UNTIL;
+    ctl.tick();
+    const banner = body.querySelector("#tm_signin_expired_banner");
+    expect(banner).not.toBeNull();
+    expect(banner.hidden).toBe(false);
+    expect(banner.getAttribute("role")).toBe("alert");
+    expect(body.firstChild).toBe(banner);
+    const link = banner.querySelector(".tm_banner_action");
+    expect(link.getAttribute("href")).toBe("https://acme.okta.com");
+    expect(link.textContent).toBe("Sign in again");
+    const copy = banner.textContent.toLowerCase();
+    expect(copy).not.toContain("key");
+    expect(copy).not.toContain("add-on");
+  });
+
+  it("offers no button when the referrer gives no safe origin", () => {
+    const body = freshBody();
+    const ctl = createSigninExpiry({
+      doc: document,
+      root: freshRoot(),
+      body,
+      until: UNTIL,
+      idpOrigin: "",
+      now: () => UNTIL,
+    });
+    ctl.tick();
+    expect(body.querySelector(".tm_banner_action")).toBeNull();
+  });
+
+  it("the × hides the banner for the rest of the page's life", () => {
+    const body = freshBody();
+    const ctl = createSigninExpiry({
+      doc: document,
+      root: freshRoot(),
+      body,
+      until: UNTIL,
+      now: () => UNTIL,
+    });
+    ctl.tick();
+    const banner = body.querySelector("#tm_signin_expired_banner");
+    banner.querySelector(".tm_banner_x").click();
+    expect(banner.hidden).toBe(true);
+    ctl.tick();
+    expect(banner.hidden).toBe(true);
+  });
+
+  it("the Sign In guard reveals a dismissed banner again", () => {
+    const body = freshBody();
+    const ctl = createSigninExpiry({
+      doc: document,
+      root: freshRoot(),
+      body,
+      until: UNTIL,
+      now: () => UNTIL,
+    });
+    ctl.tick();
+    const banner = body.querySelector("#tm_signin_expired_banner");
+    banner.querySelector(".tm_banner_x").click();
+    expect(banner.hidden).toBe(true);
+    ctl.revealBanner();
+    expect(banner.hidden).toBe(false);
   });
 });

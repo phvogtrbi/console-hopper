@@ -44,6 +44,10 @@ import {
   serviceTokenForPath,
   parseJumpDestLines,
   formatJumpDestLines,
+  SAML_FRESH_MS,
+  decodeSamlResponse,
+  samlValidUntil,
+  idpOriginFrom,
 } from "../src/content/util.js";
 
 describe("escapeHtml", () => {
@@ -1284,5 +1288,79 @@ describe("bad bulk-editor lines", () => {
       "123456789012/Admin: pci, ops\n123456789012: shared\narn:aws:iam::123456789012:role/Admin: x\nops, pci";
     expect(badAccountTagLines(text)).toEqual([3, 4]);
     expect(badAccountTagLines("")).toEqual([]);
+  });
+});
+
+describe("decodeSamlResponse", () => {
+  const toB64 = (s) =>
+    btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+  it("decodes base64 (whitespace and all) with UTF-8 intact", () => {
+    const xml = "<a>Zürich</a>";
+    expect(decodeSamlResponse(toB64(xml).replace(/(.{8})/g, "$1\n"))).toBe(xml);
+  });
+  it("unwraps legacy percent-encoded XML", () => {
+    expect(decodeSamlResponse(toB64(encodeURIComponent("<a/>")))).toBe("<a/>");
+  });
+  it("is empty for empty or missing input", () => {
+    expect(decodeSamlResponse("")).toBe("");
+    expect(decodeSamlResponse(null)).toBe("");
+  });
+});
+
+describe("samlValidUntil — the one validity rule", () => {
+  const issued = Date.parse("2026-10-18T12:00:00Z");
+
+  it("SAML_FRESH_MS is 4.5 minutes", () => {
+    expect(SAML_FRESH_MS).toBe(4.5 * 60 * 1000);
+  });
+  it("ends at IssueInstant + 4.5 min when NotOnOrAfter is later (mock-saml's 10 min)", () => {
+    expect(
+      samlValidUntil({
+        issueInstant: issued,
+        notOnOrAfter: issued + 10 * 60 * 1000,
+      })
+    ).toBe(issued + SAML_FRESH_MS);
+  });
+  it("keeps an earlier NotOnOrAfter", () => {
+    const early = issued + 2 * 60 * 1000;
+    expect(samlValidUntil({ issueInstant: issued, notOnOrAfter: early })).toBe(
+      early
+    );
+  });
+  it("uses whichever time is present when the other is absent", () => {
+    expect(samlValidUntil({ issueInstant: issued, notOnOrAfter: null })).toBe(
+      issued + SAML_FRESH_MS
+    );
+    expect(samlValidUntil({ issueInstant: null, notOnOrAfter: 5000 })).toBe(
+      5000
+    );
+  });
+  it("is null when there are no times at all", () => {
+    expect(
+      samlValidUntil({ issueInstant: null, notOnOrAfter: null })
+    ).toBeNull();
+    expect(samlValidUntil(null)).toBeNull();
+  });
+});
+
+describe("idpOriginFrom", () => {
+  it("keeps only an identity provider's origin", () => {
+    expect(idpOriginFrom("https://acme.okta.com/home/aws/123?x=1")).toBe(
+      "https://acme.okta.com"
+    );
+    expect(idpOriginFrom("http://localhost:4000/saml/login")).toBe(
+      "http://localhost:4000"
+    );
+  });
+  it("offers nothing for AWS's own hosts, other schemes, or no referrer", () => {
+    expect(idpOriginFrom("")).toBe("");
+    expect(idpOriginFrom("not a url")).toBe("");
+    expect(idpOriginFrom("https://signin.aws.amazon.com/saml")).toBe("");
+    expect(idpOriginFrom("https://eu-west-1.signin.aws.amazon.com/saml")).toBe(
+      ""
+    );
+    expect(idpOriginFrom("https://console.amazonaws.cn/")).toBe("");
+    expect(idpOriginFrom("javascript:alert(1)")).toBe("");
+    expect(idpOriginFrom("file:///tmp/x.html")).toBe("");
   });
 });

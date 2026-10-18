@@ -50,7 +50,12 @@ import {
   PAGE_MAX_WIDTH_DEFAULT,
   parsePageMaxWidth,
   splitNameTail,
+  decodeSamlResponse,
+  samlTimesFrom,
+  samlValidUntil,
+  idpOriginFrom,
 } from "./util.js";
+import { createSigninExpiry } from "./signin-expiry.js";
 
 (async function () {
   "use strict";
@@ -3301,22 +3306,38 @@ import {
   // today's list (callers skip the rest first). The service worker opens one
   // tab per entry, each of which posts its own sign-in, so the picker stays
   // put. `tag` names the Chrome tab group the tabs gather in.
-  // How long ago the IdP issued this page's SAML response, in ms (null when it
-  // can't be read). AWS accepts a response for 5 minutes, so a picker left
-  // open longer can't sign anything in — every tab would land on AWS's
-  // "Token must be redeemed within 5 minutes" page. Read locally, never sent.
-  const samlResponseAgeMs = () => {
+  // When AWS stops accepting this page's SAML response, in ms since the epoch
+  // (null when the response carries no usable times). AWS honours a sign-in
+  // page for about five minutes after the IdP issued it, so a picker left open
+  // longer can't sign anything in — every tab would land on AWS's "Token must
+  // be redeemed within 5 minutes" page. One rule, in util.js (samlValidUntil):
+  // the earlier of the response's NotOnOrAfter and its IssueInstant + 4.5 min.
+  // Read locally from the hidden form field, never stored or sent.
+  const readSigninValidity = () => {
     try {
       const input = document.querySelector('#saml_form input[name="SAMLResponse"]');
-      const xml = input ? atob(String(input.value || "").replace(/\s+/g, "")) : "";
-      const m = xml.match(/IssueInstant="([^"]+)"/);
-      const t = m ? Date.parse(m[1]) : NaN;
-      return Number.isFinite(t) ? Date.now() - t : null;
+      if (!input) return { issuedAt: null, until: null };
+      const times = samlTimesFrom(decodeSamlResponse(input.value));
+      return { issuedAt: times.issueInstant, until: samlValidUntil(times) };
     } catch (e) {
-      return null;
+      return { issuedAt: null, until: null };
     }
   };
-  const SAML_FRESH_MS = 4.5 * 60 * 1000;
+  const signinValidity = readSigninValidity();
+
+  // The sign-in is expired once the clock has passed that instant. A response
+  // with no readable times never expires — there is nothing to measure.
+  const samlExpired = () =>
+    signinValidity.until !== null && Date.now() >= signinValidity.until;
+  // How long ago the response was issued, in ms, for the "N minutes old" toast;
+  // null when it can't be read.
+  const samlResponseAgeMs = () =>
+    signinValidity.issuedAt === null ? null : Date.now() - signinValidity.issuedAt;
+
+  // The sign-in validity UI (the expired-sign-in banner + page attributes),
+  // created once the interface is on the page. The plain Sign In guard reaches
+  // its banner through this handle; null until then.
+  let signinExpiry = null;
 
   // `reuse` maps a role key (sessionRoleKey) to the live session its tabs
   // should open in: those go straight to the session's console, with no new
@@ -4428,11 +4449,18 @@ import {
   // sessions — and it's checked before the dialog too, so a page too old to
   // use doesn't cost the user their sessions.
   // `retry` finishes "Sign in again through your identity provider, then …".
+  // The decision is the one validity rule (samlExpired); the message still
+  // quotes the page's age when it has it. Launch Sets and jumps surface this
+  // toast; the plain Sign In click shows the banner instead.
   const samlTooOld = (retry) => {
+    if (!samlExpired()) return false;
     const age = samlResponseAgeMs();
-    if (age === null || age <= SAML_FRESH_MS) return false;
+    const lead =
+      age === null
+        ? "This sign-in page has expired, and AWS no longer accepts it."
+        : `This sign-in page is ${Math.floor(age / 60000)} minutes old, and AWS only accepts it for about 5.`;
     showToast(
-      `This sign-in page is ${Math.floor(age / 60000)} minutes old, and AWS only accepts it for 5. Sign in again through your identity provider, then ${retry}.`,
+      `${lead} Sign in again through your identity provider, then ${retry}.`,
       "error",
       8000
     );
@@ -5283,6 +5311,22 @@ import {
     if (amazonFooter.length) {
       amazonFooter.prepend(footerHTML);
     }
+
+    // Sign-in validity UI: the banner across the top at expiry, plus the page
+    // attributes that advertise the sign-in's validity. The referrer gives the
+    // IdP origin for the banner's "Sign in again" link (read locally, never
+    // stored or sent). Tick once now, then once a second only until it expires.
+    signinExpiry = createSigninExpiry({
+      until: signinValidity.until,
+      idpOrigin: idpOriginFrom(document.referrer),
+    });
+    // Tick once now; then once a second only until it expires — and only when
+    // there is a time to expire at all (a response with no times never does).
+    if (!signinExpiry.tick() && signinValidity.until !== null) {
+      const signinExpiryTimer = setInterval(() => {
+        if (signinExpiry.tick()) clearInterval(signinExpiryTimer);
+      }, 1000);
+    }
   }
 
   // --- Add CSS with Theme Support ---
@@ -5468,6 +5512,42 @@ import {
         body.tm_theme_dark .tm_right_column {
             border-left-color: #3a4148 !important;
         }
+
+        /* Expired-sign-in banner across the top of the page. First child of
+           <body>, full-width and sticky, its message centred to match the
+           centred page; the × sits in the top-right corner. Id-scoped so no
+           !important is needed, and the [hidden] rule still wins. See
+           src/content/signin-expiry.js. */
+        #tm_signin_expired_banner {
+            position: sticky; top: 0; z-index: 2147482000;
+            display: flex; align-items: center; justify-content: center;
+            gap: 14px; flex-wrap: wrap;
+            box-sizing: border-box; width: 100%; padding: 10px 48px;
+            background: #fde8e6; border-bottom: 1px solid #f5c6c1;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            color: #7a2a22; text-align: center;
+            font: 13.5px/1.45 system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+        #tm_signin_expired_banner[hidden] { display: none; }
+        #tm_signin_expired_banner .tm_banner_text { max-width: 760px; min-width: 0; }
+        #tm_signin_expired_banner strong { font-weight: 600; }
+        #tm_signin_expired_banner .tm_banner_action {
+            display: inline-flex; align-items: center; height: 30px; padding: 0 14px;
+            border-radius: 4px; background: #a7352c; color: #fff;
+            text-decoration: none; font-weight: 500; white-space: nowrap;
+        }
+        #tm_signin_expired_banner .tm_banner_action:hover { background: #8a2b23; }
+        #tm_signin_expired_banner .tm_banner_x {
+            position: absolute; top: 8px; right: 10px;
+            width: 28px; height: 28px; border: 0; border-radius: 4px;
+            background: none; color: inherit; font-size: 20px; line-height: 1; cursor: pointer;
+        }
+        #tm_signin_expired_banner .tm_banner_x:hover { background: rgba(0, 0, 0, 0.06); }
+        body.tm_theme_dark #tm_signin_expired_banner {
+            background: #3b1f1c; border-bottom-color: #6b2f29; color: #f6c4bd;
+        }
+        body.tm_theme_dark #tm_signin_expired_banner .tm_banner_action { background: #c4473c; }
+        body.tm_theme_dark #tm_signin_expired_banner .tm_banner_action:hover { background: #a93a30; }
 
         /* Dedicated "Tab group" area between the filters and the search / jump
            rail: one dropdown (By role / By org / Custom tag / Off) with a tag
@@ -7524,6 +7604,14 @@ import {
     // A new session at five of five: sign one out here first, not on AWS's
     // "Session limit reached" page.
     if (!liveSession) {
+      // This click would post a new sign-in. If the page has already expired,
+      // AWS would serve only its "Token must be redeemed within 5 minutes"
+      // error — so don't post it: surface the banner (un-hiding it if the user
+      // dismissed it) and stop, rather than making room we can't use.
+      if (signinExpiry && signinExpiry.isExpired()) {
+        signinExpiry.revealBanner();
+        return;
+      }
       const where = [serviceNameFor(servicePath || ""), region].filter(Boolean).join(" · ");
       const room = await makeRoomFor([{ roleArn }], {
         name: `${accountName} · ${roleName}`,
@@ -7535,8 +7623,12 @@ import {
         goal: "sign in",
       });
       if (!room) return;
-      // The dialog can sit open a while; AWS takes the page for 5 minutes.
-      if (room.shown && samlTooOld(`sign in to ${roleName}`)) return;
+      // The dialog can sit open a while, and the page can expire while it is:
+      // same guard again, same banner.
+      if (room.shown && signinExpiry && signinExpiry.isExpired()) {
+        signinExpiry.revealBanner();
+        return;
+      }
     }
 
     const labelPayload = buildSigninLabel({ accountName, accountId, roleName, env });

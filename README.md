@@ -174,7 +174,8 @@ console-hopper/
 ├── src/content/            # Content-script ES modules (bundled → dist/content.js)
 │   ├── index.js            #   main script injected into the SAML page
 │   ├── dom.js              #   minimal jQuery-subset DOM shim
-│   └── util.js             #   pure helpers (escaping, matchers, parsing)
+│   ├── util.js             #   pure helpers (escaping, matchers, parsing, SAML validity)
+│   └── signin-expiry.js    #   expired-sign-in banner + page attributes
 ├── src/shared/             # Modules shared with the service worker
 │   ├── region-lock.js      #   pure region-lock decisions (unit-tested)
 │   └── launch.js           #   Launch Sets sign-in checks (unit-tested)
@@ -191,6 +192,26 @@ console-hopper/
 ├── STORE_LISTING.md        # Chrome Web Store form values + checklist
 └── README.md
 ```
+
+## Page interface for other extensions
+
+On the SAML sign-in page Console Hopper marks `<html>`
+(`document.documentElement`) with a small, **stable** set of attributes,
+so a companion extension can read the sign-in's validity rather than
+recomputing it. These are a deliberate interface — other extensions may
+read them; keep them:
+
+| Attribute | Value | When |
+|---|---|---|
+| `data-console-hopper` | the extension id | once Console Hopper has claimed the page |
+| `data-console-hopper-signin-until` | ms since the epoch at which AWS stops accepting the sign-in (the earlier of the SAML response's `NotOnOrAfter` and its `IssueInstant` + 4.5 min) | set once on load; absent when the response carries no times |
+| `data-console-hopper-signin-expired` | `"1"` | once the clock has passed `…-signin-until`; absent before |
+| `data-console-hopper-expiry-ui` | `"1"` | whenever Console Hopper is showing its own expired-sign-in banner (always, in 1.9.0) — the signal for a second copy to stand down |
+
+Only times and flags are published; nothing from the assertion itself is
+exposed. The validity rule and the UI live in
+[`src/content/util.js`](src/content/util.js) (`samlValidUntil`) and
+[`src/content/signin-expiry.js`](src/content/signin-expiry.js).
 
 ## Install from source
 

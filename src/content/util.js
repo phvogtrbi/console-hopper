@@ -719,3 +719,103 @@ export const orderByIds = (items, ids, idOf, { newFirst = false } = {}) => {
   const rest = list.filter((it) => !rank.has(idOf(it)));
   return newFirst ? [...rest, ...placed] : [...placed, ...rest];
 };
+
+// === SIGN-IN VALIDITY (the AWS 5-minute SAML window) ===
+// AWS's STS and the console sign-in refuse a SAML response about five minutes
+// after the identity provider issued it ("Token must be redeemed within 5
+// minutes of issuance"), whatever the response's NotOnOrAfter says (mock-saml
+// stamps ten). 4.5 minutes leaves room for clock skew and for calls still in
+// flight. The banner, the published page attributes and every sign-in guard
+// are all measured from this one window (see src/content/signin-expiry.js).
+export const SAML_FRESH_MS = 4.5 * 60 * 1000;
+
+// Base64 (with any whitespace) to the SAML XML text, decoding UTF-8 properly:
+// atob() yields one char per byte, so accented identity-provider strings need a
+// real decode. Some older IdPs percent-encoded the XML before base64; unwrap
+// that too. Globals only (atob, TextDecoder) — no DOM — so it runs in the
+// content script and in Node tests alike.
+export const decodeSamlResponse = (b64) => {
+  const clean = String(b64 || "").replace(/\s+/g, "");
+  if (!clean) return "";
+  const bin = atob(clean);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  let text = new TextDecoder("utf-8").decode(bytes);
+  if (/^%3C/i.test(text.trim())) {
+    try {
+      text = decodeURIComponent(text);
+    } catch (e) {
+      /* not percent-encoded after all — leave the decoded text as-is */
+    }
+  }
+  return text;
+};
+
+// The two instants that bound a SAML response's usable life, in ms since the
+// epoch (null when absent): its IssueInstant (the Response's, else the
+// Assertion's) and the earliest NotOnOrAfter on any SubjectConfirmationData —
+// the one STS actually honours. Only the times are read; nothing else from the
+// assertion is touched. The DOMParser comes from the caller so this stays
+// DOM-free at import (the content script passes window.DOMParser; jsdom tests
+// pass theirs).
+export const samlTimesFrom = (xml, DOMParserImpl) => {
+  const out = { issueInstant: null, notOnOrAfter: null };
+  const Parser = DOMParserImpl || (typeof DOMParser !== "undefined" ? DOMParser : null);
+  if (!Parser) return out;
+  const parseTime = (s) => {
+    const t = Date.parse(String(s || ""));
+    return Number.isFinite(t) ? t : null;
+  };
+  let doc;
+  try {
+    doc = new Parser().parseFromString(String(xml || ""), "text/xml");
+  } catch (e) {
+    return out;
+  }
+  if (!doc || doc.getElementsByTagName("parsererror").length) return out;
+  const byName = (name) => [...doc.getElementsByTagNameNS("*", name)];
+  const response = byName("Response")[0] || doc.documentElement;
+  if (response && response.getAttribute) {
+    out.issueInstant = parseTime(response.getAttribute("IssueInstant"));
+  }
+  if (out.issueInstant === null) {
+    const assertion = byName("Assertion")[0];
+    if (assertion) out.issueInstant = parseTime(assertion.getAttribute("IssueInstant"));
+  }
+  for (const scd of byName("SubjectConfirmationData")) {
+    const t = parseTime(scd.getAttribute("NotOnOrAfter"));
+    if (t !== null && (out.notOnOrAfter === null || t < out.notOnOrAfter)) {
+      out.notOnOrAfter = t;
+    }
+  }
+  return out;
+};
+
+// THE validity rule. When AWS stops accepting this sign-in, in ms since the
+// epoch: the earlier of NotOnOrAfter and IssueInstant + SAML_FRESH_MS. Null
+// when the response says nothing about time. `times` is a { issueInstant,
+// notOnOrAfter } as samlTimesFrom returns — either may be null.
+export const samlValidUntil = (times) => {
+  if (!times) return null;
+  const ends = [];
+  if (times.notOnOrAfter != null) ends.push(times.notOnOrAfter);
+  if (times.issueInstant != null) ends.push(times.issueInstant + SAML_FRESH_MS);
+  return ends.length ? Math.min(...ends) : null;
+};
+
+// The identity provider's origin from the page's referrer: http(s) only, never
+// AWS's own hosts (a reload or AWS's own redirect would set those), and only
+// the origin. "" when there is none to offer. The expired banner's "Sign in
+// again" link is the sole use; the referrer is read locally, never stored or
+// sent.
+export const idpOriginFrom = (referrer) => {
+  let u;
+  try {
+    u = new URL(String(referrer || ""));
+  } catch (e) {
+    return "";
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+  if (/(^|\.)(amazon\.com|amazonaws\.com|amazonaws\.cn)$/i.test(u.hostname)) return "";
+  return u.origin;
+};

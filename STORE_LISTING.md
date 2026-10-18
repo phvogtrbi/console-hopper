@@ -40,6 +40,16 @@ gives every row a star, a service deep-link, and a one-click sign-in,
 and gives every open console tab a colour-coded favicon plus an
 account name in the title.
 
+NEW IN 1.9.0
+
+• Know when a sign-in has gone stale — AWS accepts a sign-in page for
+only about five minutes. Once that window has passed, a banner across the
+top of the page says so and offers a Sign in again link back to your
+identity provider, and a plain Sign In no longer posts a sign-in AWS
+would only reject — so you don't land on AWS's "Token must be redeemed
+within 5 minutes" error page. Sessions you already have open keep
+working.
+
 NEW IN 1.8.0
 
 • Already signed in? It opens instead — a role you're already signed
@@ -400,7 +410,7 @@ transmitted).
 ### Privacy policy URL
 
 ```
-https://github.com/tomekklas/console-hopper/blob/main/PRIVACY.md
+https://consolehopper.com/privacy.html
 ```
 
 ---
@@ -492,7 +502,12 @@ sites are touched.
 ```
 Required to inject the enhanced role-picker UI into the AWS SAML
 sign-in page. Without this host permission the extension cannot
-display its filters, favorites, search or service dropdowns.
+display its filters, favorites, search or service dropdowns. On this
+page it also reads the browser's referrer — the origin only, never the
+full address — to offer a "Sign in again" link back to the identity
+provider once AWS's roughly five-minute sign-in window has passed and a
+fresh sign-in from the page would fail. The referrer origin is read on
+the page, used only for that link, and is never stored or transmitted.
 ```
 
 ### Host permission: `https://console.aws.amazon.com/*`, `https://*.console.aws.amazon.com/*`
@@ -525,8 +540,8 @@ own Region. Page content is neither read nor transmitted.
 
 | Field | Suggested value |
 |---|---|
-| Official URL | `https://github.com/tomekklas/console-hopper` |
-| Homepage URL | `https://github.com/tomekklas/console-hopper` |
+| Official URL | `https://consolehopper.com/` |
+| Homepage URL | `https://consolehopper.com/` |
 | Support URL | `https://github.com/tomekklas/console-hopper/issues` |
 
 ---
@@ -602,6 +617,18 @@ own Region. Page content is neither read nor transmitted.
       group greyed; Save open tabs lists real tabs; ✕ closed 3 tabs;
       Clear AWS sessions signed everything out and left multi-session
       on.
+- [ ] 1.9.0 verified live (mock-SAML → role picker): at expiry a red
+      banner appears across the top (centred message + "Sign in again"), a
+      plain Sign In click does not post (banner re-shown), "Sign in again"
+      lands on the identity provider's origin, and
+      `data-console-hopper-signin-until` / `-signin-expired` / `-expiry-ui`
+      are set on `<html>` as documented. Light and dark theme.
+- [x] 1.9.0 store fields: no permission changes (manifest differs only in
+      version). The signin.aws.amazon.com/saml host justification gains the
+      referrer-origin read (expired-sign-in link); PRIVACY.md updated
+      18 October 2026 (new "identity-provider link" section); the combined
+      host-permission field is unchanged and still 980/988 chars.
+- [ ] Reload the final 1.9.0 build; footer reads v1.9.0.
 - [x] Five 1280×800 screenshots in `store-assets/`, still current for 1.8.0
       (it adds to the UI rather than changing what they show); reshot for 1.7.0
       (main with Sets column + one-line rows, Launch Sets panel, Edit set,

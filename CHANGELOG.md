@@ -3,6 +3,39 @@
 All notable changes to Console Hopper are listed here. Dates are in
 `YYYY-MM-DD`. Versions follow the value in `manifest.json`.
 
+## 1.9.0 — 2026-10-18
+
+### Added
+
+- **An expired-sign-in banner.** AWS accepts a SAML sign-in page for only
+  about five minutes after your identity provider issues it, whatever the
+  page's own `NotOnOrAfter` says. Once that window has passed, a banner
+  appears across the top of the page saying so and offering a **Sign in
+  again** link back to your identity provider. A plain **Sign In** that
+  would post a new sign-in no longer does so once the page has expired —
+  it shows the banner instead of letting AWS's "Token must be redeemed
+  within 5 minutes" error page load. Launch Sets and jumps keep their
+  existing "sign-in page too old" warning, now measured from the same
+  rule. The banner's × dismisses it; a later expired **Sign In** brings
+  it back.
+- **A small page interface for companion extensions.** On the sign-in
+  page `<html>` now carries `data-console-hopper-signin-until`,
+  `data-console-hopper-signin-expired` and `data-console-hopper-expiry-ui`
+  (times and flags only — see the README's *Page interface* section).
+  Another extension may read these to avoid recomputing the sign-in's
+  validity.
+
+### Changed
+
+- The validity rule — the earlier of the SAML response's `NotOnOrAfter`
+  and its `IssueInstant` + 4.5 minutes (for clock skew) — now lives in a
+  tested helper (`samlValidUntil` in `src/content/util.js`), reads the
+  base64 response as UTF-8, and drives the banner, the published
+  attributes and every sign-in guard from one place.
+- PRIVACY.md and the store listing note that Console Hopper reads the
+  sign-in page's referrer origin (only) for the "Sign in again" link,
+  on the page and never stored or transmitted. No new permissions.
+
 ## 1.8.0 — 2026-10-03
 
 ### Added

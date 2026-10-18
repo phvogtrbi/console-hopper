@@ -176,7 +176,13 @@ describe("normalizeRegionList", () => {
 
 describe("isValidRegionCode", () => {
   it("accepts real region codes across partitions", () => {
-    for (const code of ["us-east-1", "eu-central-1", "ap-southeast-2", "us-gov-east-1", "cn-north-1"]) {
+    for (const code of [
+      "us-east-1",
+      "eu-central-1",
+      "ap-southeast-2",
+      "us-gov-east-1",
+      "cn-north-1",
+    ]) {
       expect(isValidRegionCode(code)).toBe(true);
     }
   });
@@ -199,7 +205,7 @@ describe("parseAccountNameLines", () => {
       parseAccountNameLines(
         "123456789012: Prod Logging\nnot-an-id: x\n\n999999999999 : Sandbox"
       )
-    ).toEqual({ "123456789012": "Prod Logging", "999999999999": "Sandbox" });
+    ).toEqual({ 123456789012: "Prod Logging", 999999999999: "Sandbox" });
   });
   it("requires a 12-digit id and a non-empty name", () => {
     expect(parseAccountNameLines("123456789012:")).toEqual({});
@@ -210,7 +216,7 @@ describe("parseAccountNameLines", () => {
 
 describe("formatAccountNameLines", () => {
   it("round-trips with parseAccountNameLines", () => {
-    const map = { "123456789012": "Prod Logging", "999999999999": "Sandbox" };
+    const map = { 123456789012: "Prod Logging", 999999999999: "Sandbox" };
     expect(parseAccountNameLines(formatAccountNameLines(map))).toEqual(map);
   });
 });
@@ -219,12 +225,12 @@ describe("normalizeAccountNames", () => {
   it("keeps 12-digit id -> string-name pairs and trims, drops the rest", () => {
     expect(
       normalizeAccountNames({
-        "123456789012": "  Prod  ",
+        123456789012: "  Prod  ",
         bad: "x",
-        "999999999999": "",
-        "111111111111": 5,
+        999999999999: "",
+        111111111111: 5,
       })
-    ).toEqual({ "123456789012": "Prod" });
+    ).toEqual({ 123456789012: "Prod" });
   });
   it("returns {} for non-objects", () => {
     expect(normalizeAccountNames(null)).toEqual({});
@@ -266,20 +272,36 @@ describe("parseAssumeProfileLines", () => {
           "Initech | 333333333333 | OrgAdmin"
       )
     ).toEqual([
-      { name: "Acme", hub: "111111111111", role: "OrgAdmin", region: "eu-central-1" },
+      {
+        name: "Acme",
+        hub: "111111111111",
+        role: "OrgAdmin",
+        region: "eu-central-1",
+      },
       { name: "Globex", hub: "222222222222", role: "OrgAdmin" },
       { name: "Initech", hub: "333333333333", role: "OrgAdmin" },
     ]);
   });
   it("round-trips through formatAssumeProfileLines with and without a region", () => {
-    const text = "Acme | 111111111111 | OrgAdmin | eu-central-1\nGlobex | 222222222222 | OrgAdmin";
+    const text =
+      "Acme | 111111111111 | OrgAdmin | eu-central-1\nGlobex | 222222222222 | OrgAdmin";
     expect(formatAssumeProfileLines(parseAssumeProfileLines(text))).toBe(text);
   });
   it("takes an optional hub role as 'account/role'", () => {
     // Without it the first row for the account wins, which may be a role that
     // can't assume anything.
-    expect(parseAssumeProfileLines("Acme | 111111111111/HubRole | OrgAdmin | eu-west-1")).toEqual([
-      { name: "Acme", hub: "111111111111", role: "OrgAdmin", hubRole: "HubRole", region: "eu-west-1" },
+    expect(
+      parseAssumeProfileLines(
+        "Acme | 111111111111/HubRole | OrgAdmin | eu-west-1"
+      )
+    ).toEqual([
+      {
+        name: "Acme",
+        hub: "111111111111",
+        role: "OrgAdmin",
+        hubRole: "HubRole",
+        region: "eu-west-1",
+      },
     ]);
     // A bare account id still means "any role in that account".
     expect(parseAssumeProfileLines("Acme | 111111111111 | OrgAdmin")).toEqual([
@@ -296,14 +318,26 @@ describe("normalizeJumpRecents", () => {
   it("keeps valid entries, trims, drops junk, defaults missing fields", () => {
     expect(
       normalizeJumpRecents([
-        { org: "  Acme  ", account: " 111111111111 ", label: "  prod  ", role: "  OrgAdmin  ", ts: 5 },
+        {
+          org: "  Acme  ",
+          account: " 111111111111 ",
+          label: "  prod  ",
+          role: "  OrgAdmin  ",
+          ts: 5,
+        },
         { org: "Bad", account: "999", label: "x", ts: 1 },
         { account: "222222222222" },
         null,
         "nope",
       ])
     ).toEqual([
-      { org: "Acme", account: "111111111111", label: "prod", role: "OrgAdmin", ts: 5 },
+      {
+        org: "Acme",
+        account: "111111111111",
+        label: "prod",
+        role: "OrgAdmin",
+        ts: 5,
+      },
       { org: "", account: "222222222222", label: "", role: "", ts: 0 },
     ]);
   });
@@ -326,7 +360,9 @@ describe("formatAssumeProfileLines", () => {
       { name: "Acme Prod", hub: "111111111111", role: "OrgAdmin" },
       { name: "Acme Dev", hub: "222222222222", role: "ReadOnly" },
     ];
-    expect(parseAssumeProfileLines(formatAssumeProfileLines(list))).toEqual(list);
+    expect(parseAssumeProfileLines(formatAssumeProfileLines(list))).toEqual(
+      list
+    );
   });
 });
 
@@ -351,13 +387,14 @@ describe("normalizeAssumeProfiles", () => {
 
 describe("normalizeTagList", () => {
   it("trims, collapses whitespace, drops empties, caps length", () => {
-    expect(normalizeTagList(["  palo   alto ", "", "  ", "x".repeat(60)])).toEqual([
-      "palo alto",
-      "x".repeat(40),
-    ]);
+    expect(
+      normalizeTagList(["  palo   alto ", "", "  ", "x".repeat(60)])
+    ).toEqual(["palo alto", "x".repeat(40)]);
   });
   it("dedupes case-insensitively, first spelling wins", () => {
-    expect(normalizeTagList(["Palo Alto", "palo alto", "PALO ALTO"])).toEqual(["Palo Alto"]);
+    expect(normalizeTagList(["Palo Alto", "palo alto", "PALO ALTO"])).toEqual([
+      "Palo Alto",
+    ]);
   });
   it("caps the number of tags per account", () => {
     const many = Array.from({ length: 30 }, (_, i) => `t${i}`);
@@ -372,10 +409,12 @@ describe("normalizeTagList", () => {
 describe("parseAccountTagLines", () => {
   it("parses 'id: tag, tag' lines", () => {
     expect(
-      parseAccountTagLines("123456789012: palo alto, firewall, pci\n 210987654321 : splunk")
+      parseAccountTagLines(
+        "123456789012: palo alto, firewall, pci\n 210987654321 : splunk"
+      )
     ).toEqual({
-      "123456789012": ["palo alto", "firewall", "pci"],
-      "210987654321": ["splunk"],
+      123456789012: ["palo alto", "firewall", "pci"],
+      210987654321: ["splunk"],
     });
   });
   it("skips bad ids, missing colons, and empty tag lists", () => {
@@ -388,11 +427,15 @@ describe("parseAccountTagLines", () => {
 describe("parseAccountTagLines — role keys", () => {
   it("accepts account/role keys alongside account-wide ones", () => {
     expect(
-      parseAccountTagLines("123456789012/Admin: ops-1\n123456789012: pci\n123456789012/Bad Role: x")
-    ).toEqual({ "123456789012/Admin": ["ops-1"], "123456789012": ["pci"] });
+      parseAccountTagLines(
+        "123456789012/Admin: ops-1\n123456789012: pci\n123456789012/Bad Role: x"
+      )
+    ).toEqual({ "123456789012/Admin": ["ops-1"], 123456789012: ["pci"] });
   });
   it("merges repeated keys", () => {
-    expect(parseAccountTagLines("123456789012/Admin: a\n123456789012/Admin: b, A")).toEqual({
+    expect(
+      parseAccountTagLines("123456789012/Admin: a\n123456789012/Admin: b, A")
+    ).toEqual({
       "123456789012/Admin": ["a", "b"],
     });
   });
@@ -410,7 +453,11 @@ describe("tagKeyFor", () => {
 describe("migrateAccountTags", () => {
   it("copies an account-wide tag onto each listed role and drops the account key", () => {
     const { map, changed } = migrateAccountTags(
-      { "123456789012": ["pci"], "123456789012/Admin": ["ops-1"], "210987654321": ["splunk"] },
+      {
+        123456789012: ["pci"],
+        "123456789012/Admin": ["ops-1"],
+        210987654321: ["splunk"],
+      },
       [
         { account: "123456789012", role: "Admin" },
         { account: "123456789012", role: "ReadOnly" },
@@ -420,18 +467,27 @@ describe("migrateAccountTags", () => {
     expect(map).toEqual({
       "123456789012/Admin": ["ops-1", "pci"],
       "123456789012/ReadOnly": ["pci"],
-      "210987654321": ["splunk"],
+      210987654321: ["splunk"],
     });
   });
   it("reports no change when nothing is account-wide or listed", () => {
-    expect(migrateAccountTags({ "123456789012/Admin": ["a"] }, []).changed).toBe(false);
-    expect(migrateAccountTags({ "210987654321": ["a"] }, [{ account: "123456789012", role: "X" }]).changed).toBe(false);
+    expect(
+      migrateAccountTags({ "123456789012/Admin": ["a"] }, []).changed
+    ).toBe(false);
+    expect(
+      migrateAccountTags({ 210987654321: ["a"] }, [
+        { account: "123456789012", role: "X" },
+      ]).changed
+    ).toBe(false);
   });
 });
 
 describe("formatAccountTagLines", () => {
   it("round-trips with parseAccountTagLines", () => {
-    const map = { "123456789012": ["palo alto", "pci"], "210987654321": ["splunk"] };
+    const map = {
+      123456789012: ["palo alto", "pci"],
+      210987654321: ["splunk"],
+    };
     expect(parseAccountTagLines(formatAccountTagLines(map))).toEqual(map);
   });
   it("returns '' for non-objects", () => {
@@ -444,11 +500,11 @@ describe("normalizeAccountTags", () => {
   it("keeps valid entries, drops bad ids and empty tag lists", () => {
     expect(
       normalizeAccountTags({
-        "123456789012": [" palo alto ", "palo alto", ""],
+        123456789012: [" palo alto ", "palo alto", ""],
         99999: ["bad id"],
-        "210987654321": [],
+        210987654321: [],
       })
-    ).toEqual({ "123456789012": ["palo alto"] });
+    ).toEqual({ 123456789012: ["palo alto"] });
   });
   it("returns {} for non-objects", () => {
     expect(normalizeAccountTags(null)).toEqual({});
@@ -481,7 +537,11 @@ describe("parseQuery", () => {
   it("splits AND-ed field terms", () => {
     expect(parseQuery("tag:pci role:admin", QF)).toEqual([
       { field: "tag", negate: false, values: [{ text: "pci", quoted: false }] },
-      { field: "role", negate: false, values: [{ text: "admin", quoted: false }] },
+      {
+        field: "role",
+        negate: false,
+        values: [{ text: "admin", quoted: false }],
+      },
     ]);
   });
   it("comma = OR within a field", () => {
@@ -491,11 +551,18 @@ describe("parseQuery", () => {
     ]);
   });
   it("leading - negates", () => {
-    expect(parseQuery("-role:readonly", QF)[0]).toMatchObject({ field: "role", negate: true });
+    expect(parseQuery("-role:readonly", QF)[0]).toMatchObject({
+      field: "role",
+      negate: true,
+    });
   });
   it("keeps quoted phrases, bare and scoped", () => {
     expect(parseQuery('"palo alto"', QF)).toEqual([
-      { field: "", negate: false, values: [{ text: "palo alto", quoted: true }] },
+      {
+        field: "",
+        negate: false,
+        values: [{ text: "palo alto", quoted: true }],
+      },
     ]);
     expect(parseQuery('tag:"cost center"', QF)[0]).toMatchObject({
       field: "tag",
@@ -504,7 +571,11 @@ describe("parseQuery", () => {
   });
   it("leaves unknown prefixes as bare terms", () => {
     expect(parseQuery("arn:aws", new Set(["tag"]))).toEqual([
-      { field: "", negate: false, values: [{ text: "arn:aws", quoted: false }] },
+      {
+        field: "",
+        negate: false,
+        values: [{ text: "arn:aws", quoted: false }],
+      },
     ]);
   });
   it("bare multi-word becomes AND-ed terms", () => {
@@ -529,7 +600,8 @@ describe("matchesQuery", () => {
     expect(q("tag:pci role:poweruser")).toBe(true);
     expect(q("tag:pci role:readonly")).toBe(false);
   });
-  it("ORs comma values within a field", () => expect(q("tag:hipaa,pci")).toBe(true));
+  it("ORs comma values within a field", () =>
+    expect(q("tag:hipaa,pci")).toBe(true));
   it("excludes with a leading -", () => {
     expect(q("-tag:hipaa")).toBe(true);
     expect(q("-tag:pci")).toBe(false);
@@ -564,7 +636,13 @@ describe("isValidRegionCode as a URL-host guard", () => {
     }
   });
   it("accepts every partition's real codes", () => {
-    for (const ok of ["us-east-1", "eu-central-1", "us-gov-west-1", "cn-northwest-1", "ap-southeast-4"]) {
+    for (const ok of [
+      "us-east-1",
+      "eu-central-1",
+      "us-gov-west-1",
+      "cn-northwest-1",
+      "ap-southeast-4",
+    ]) {
       expect(isValidRegionCode(ok)).toBe(true);
     }
   });
@@ -573,26 +651,46 @@ describe("isValidRegionCode as a URL-host guard", () => {
 // --- Jump destinations (1.5.0) ---
 
 const SVC = [
-  { id: "cloudwatch", name: "CloudWatch", path: "cloudwatch/home?region={region}" },
+  {
+    id: "cloudwatch",
+    name: "CloudWatch",
+    path: "cloudwatch/home?region={region}",
+  },
   { id: "rds", name: "RDS", path: "rds/home?region={region}" },
 ];
 
 describe("normalizeJumpDests", () => {
   it("keeps valid entries and fills defaults", () => {
     const out = normalizeJumpDests([
-      { name: "Payments", account: "484848484848", profile: "Org A", region: "eu-west-1", service: "rds/home?region={region}", label: "db failover" },
+      {
+        name: "Payments",
+        account: "484848484848",
+        profile: "Org A",
+        region: "eu-west-1",
+        service: "rds/home?region={region}",
+        label: "db failover",
+      },
     ]);
     expect(out).toEqual([
-      { name: "Payments", account: "484848484848", profile: "Org A", region: "eu-west-1", service: "rds/home?region={region}", label: "db failover" },
+      {
+        name: "Payments",
+        account: "484848484848",
+        profile: "Org A",
+        region: "eu-west-1",
+        service: "rds/home?region={region}",
+        label: "db failover",
+      },
     ]);
   });
   it("drops entries without a 12-digit account or a profile", () => {
-    expect(normalizeJumpDests([
-      { account: "123", profile: "Org A" },
-      { account: "484848484848", profile: "" },
-      "junk",
-      null,
-    ])).toEqual([]);
+    expect(
+      normalizeJumpDests([
+        { account: "123", profile: "Org A" },
+        { account: "484848484848", profile: "" },
+        "junk",
+        null,
+      ])
+    ).toEqual([]);
   });
   it("dedupes by account+profile (case-insensitive profile)", () => {
     const out = normalizeJumpDests([
@@ -604,7 +702,12 @@ describe("normalizeJumpDests", () => {
   });
   it("drops malformed regions and unsafe service paths, keeps the entry", () => {
     const out = normalizeJumpDests([
-      { account: "484848484848", profile: "Org A", region: "EVIL.COM/", service: "/absolute/path" },
+      {
+        account: "484848484848",
+        profile: "Org A",
+        region: "EVIL.COM/",
+        service: "/absolute/path",
+      },
       { account: "111111111111", profile: "Org A", service: "a/../../etc" },
     ]);
     expect(out[0].region).toBe("");
@@ -613,15 +716,28 @@ describe("normalizeJumpDests", () => {
   });
   it("keeps real console deep links: # and : are legal in service paths", () => {
     const out = normalizeJumpDests([
-      { account: "484848484848", profile: "Org A", service: "ec2/home?region={region}#Instances:" },
-      { account: "111111111111", profile: "Org A", service: "cloudformation/home?region={region}#/stacks" },
+      {
+        account: "484848484848",
+        profile: "Org A",
+        service: "ec2/home?region={region}#Instances:",
+      },
+      {
+        account: "111111111111",
+        profile: "Org A",
+        service: "cloudformation/home?region={region}#/stacks",
+      },
     ]);
     expect(out[0].service).toBe("ec2/home?region={region}#Instances:");
     expect(out[1].service).toBe("cloudformation/home?region={region}#/stacks");
   });
   it("swaps the Import delimiter '|' out of names and labels", () => {
     const out = normalizeJumpDests([
-      { account: "484848484848", profile: "Org A", name: "Payments | EU", label: "a | b" },
+      {
+        account: "484848484848",
+        profile: "Org A",
+        name: "Payments | EU",
+        label: "a | b",
+      },
     ]);
     expect(out[0].name).toBe("Payments ¦ EU");
     expect(out[0].label).toBe("a ¦ b");
@@ -629,7 +745,10 @@ describe("normalizeJumpDests", () => {
   it("caps names/labels and the list length", () => {
     const long = "x".repeat(200);
     const many = Array.from({ length: 120 }, (_, i) => ({
-      account: String(100000000000 + i), profile: "Org A", name: long, label: long,
+      account: String(100000000000 + i),
+      profile: "Org A",
+      name: long,
+      label: long,
     }));
     const out = normalizeJumpDests(many);
     expect(out.length).toBe(100);
@@ -640,7 +759,9 @@ describe("normalizeJumpDests", () => {
 
 describe("jumpDestKey", () => {
   it("is stable, ARN-unlike, and unambiguous for awkward profiles", () => {
-    expect(jumpDestKey("484848484848", "Org A")).toBe("jump::484848484848::Org%20A");
+    expect(jumpDestKey("484848484848", "Org A")).toBe(
+      "jump::484848484848::Org%20A"
+    );
     // encodeURIComponent leaves no ":" in the profile part, so the "::"
     // separators can't be forged by a profile name.
     expect(jumpDestKey("484848484848", "a::b").split("::").length).toBe(3);
@@ -651,8 +772,12 @@ describe("jumpDestKey", () => {
 describe("resolveServiceToken / serviceTokenForPath", () => {
   it("resolves by id, name, or literal path", () => {
     expect(resolveServiceToken("rds", SVC)).toBe("rds/home?region={region}");
-    expect(resolveServiceToken("CloudWatch", SVC)).toBe("cloudwatch/home?region={region}");
-    expect(resolveServiceToken("rds/home?region={region}", SVC)).toBe("rds/home?region={region}");
+    expect(resolveServiceToken("CloudWatch", SVC)).toBe(
+      "cloudwatch/home?region={region}"
+    );
+    expect(resolveServiceToken("rds/home?region={region}", SVC)).toBe(
+      "rds/home?region={region}"
+    );
   });
   it("maps console/empty to the console home and unknowns to null", () => {
     expect(resolveServiceToken("", SVC)).toBe("");
@@ -672,18 +797,32 @@ describe("parseJumpDestLines / formatJumpDestLines", () => {
       "Payments prod | 484848484848 | Org A | eu-west-1 | rds | db failover check",
       SVC
     );
-    expect(out).toEqual([{
-      name: "Payments prod", account: "484848484848", profile: "Org A",
-      region: "eu-west-1", service: "rds/home?region={region}", label: "db failover check",
-    }]);
+    expect(out).toEqual([
+      {
+        name: "Payments prod",
+        account: "484848484848",
+        profile: "Org A",
+        region: "eu-west-1",
+        service: "rds/home?region={region}",
+        label: "db failover check",
+      },
+    ]);
   });
   it("accepts the bare-account shorthand and empty middle slots", () => {
     const out = parseJumpDestLines(
       "606060606060 | Org B\nCost | 505050505050 | Org A | | CloudWatch",
       SVC
     );
-    expect(out[0]).toMatchObject({ name: "", account: "606060606060", profile: "Org B" });
-    expect(out[1]).toMatchObject({ name: "Cost", region: "", service: "cloudwatch/home?region={region}" });
+    expect(out[0]).toMatchObject({
+      name: "",
+      account: "606060606060",
+      profile: "Org B",
+    });
+    expect(out[1]).toMatchObject({
+      name: "Cost",
+      region: "",
+      service: "cloudwatch/home?region={region}",
+    });
   });
   it("keeps pipe-split label tails (sanitized) and drops unknown service tokens", () => {
     const out = parseJumpDestLines(
@@ -702,12 +841,28 @@ describe("parseJumpDestLines / formatJumpDestLines", () => {
     });
   });
   it("skips blank and invalid lines", () => {
-    expect(parseJumpDestLines("\n\nnot enough\n123 | Org A\n", SVC)).toEqual([]);
+    expect(parseJumpDestLines("\n\nnot enough\n123 | Org A\n", SVC)).toEqual(
+      []
+    );
   });
   it("round-trips through format and back", () => {
     const list = [
-      { name: "Payments prod", account: "484848484848", profile: "Org A", region: "eu-west-1", service: "rds/home?region={region}", label: "db failover" },
-      { name: "", account: "606060606060", profile: "Org B", region: "", service: "", label: "" },
+      {
+        name: "Payments prod",
+        account: "484848484848",
+        profile: "Org A",
+        region: "eu-west-1",
+        service: "rds/home?region={region}",
+        label: "db failover",
+      },
+      {
+        name: "",
+        account: "606060606060",
+        profile: "Org B",
+        region: "",
+        service: "",
+        label: "",
+      },
     ];
     const text = formatJumpDestLines(list, SVC);
     expect(text.split("\n")[1]).toBe("606060606060 | Org B");
@@ -723,7 +878,11 @@ describe("normalizeLaunchSets", () => {
     name: "OPS-1234",
     group: "OPS-1234",
     tabs: [
-      { roleArn: ARN, service: "ec2/home?region={region}#Instances:", region: "eu-west-1" },
+      {
+        roleArn: ARN,
+        service: "ec2/home?region={region}#Instances:",
+        region: "eu-west-1",
+      },
       { roleArn: ARN, service: "iam/home", region: "" },
       { roleArn: ARN2, service: "", region: "eu-central-1" },
     ],
@@ -735,7 +894,9 @@ describe("normalizeLaunchSets", () => {
   });
 
   it("keeps archived: true and drops any other archived value", () => {
-    expect(normalizeLaunchSets([{ ...good, archived: true }])).toEqual([{ ...good, archived: true }]);
+    expect(normalizeLaunchSets([{ ...good, archived: true }])).toEqual([
+      { ...good, archived: true },
+    ]);
     expect(normalizeLaunchSets([{ ...good, archived: "yes" }])).toEqual([good]);
   });
 
@@ -758,7 +919,16 @@ describe("normalizeLaunchSets", () => {
 
   it("blanks unsafe service paths and bad regions instead of keeping them", () => {
     const [s] = normalizeLaunchSets([
-      { ...good, tabs: [{ roleArn: ARN, service: "//evil.example/", region: "eu-west-1.evil" }] },
+      {
+        ...good,
+        tabs: [
+          {
+            roleArn: ARN,
+            service: "//evil.example/",
+            region: "eu-west-1.evil",
+          },
+        ],
+      },
     ]);
     expect(s.tabs).toEqual([{ roleArn: ARN, service: "", region: "" }]);
   });
@@ -771,8 +941,12 @@ describe("normalizeLaunchSets", () => {
   });
 
   it("caps tabs per set", () => {
-    const tabs = Array.from({ length: LAUNCH_SET_MAX_TABS + 5 }, () => ({ roleArn: ARN }));
-    expect(normalizeLaunchSets([{ ...good, tabs }])[0].tabs).toHaveLength(LAUNCH_SET_MAX_TABS);
+    const tabs = Array.from({ length: LAUNCH_SET_MAX_TABS + 5 }, () => ({
+      roleArn: ARN,
+    }));
+    expect(normalizeLaunchSets([{ ...good, tabs }])[0].tabs).toHaveLength(
+      LAUNCH_SET_MAX_TABS
+    );
   });
 
   it("counts distinct roles, not tabs", () => {
@@ -783,26 +957,48 @@ describe("normalizeLaunchSets", () => {
 
 describe("splitNameTail", () => {
   it("keeps the words that tell same-prefix names apart", () => {
-    expect(splitNameTail("cutspace-landingzone-workload-payments-prod")).toEqual(["cutspace-landingzone-workload-", "payments-prod"]);
-    expect(splitNameTail("cutspace-landingzone-workload-ledger-staging")).toEqual(["cutspace-landingzone-workload-", "ledger-staging"]);
-    expect(splitNameTail("cutspace-landingzone-shared-network-hub")).toEqual(["cutspace-landingzone-shared-", "network-hub"]);
+    expect(
+      splitNameTail("cutspace-landingzone-workload-payments-prod")
+    ).toEqual(["cutspace-landingzone-workload-", "payments-prod"]);
+    expect(
+      splitNameTail("cutspace-landingzone-workload-ledger-staging")
+    ).toEqual(["cutspace-landingzone-workload-", "ledger-staging"]);
+    expect(splitNameTail("cutspace-landingzone-shared-network-hub")).toEqual([
+      "cutspace-landingzone-shared-",
+      "network-hub",
+    ]);
   });
 
   it("breaks words at case changes too", () => {
-    expect(splitNameTail("LandingZone-PlatformReadOnly")).toEqual(["LandingZone-", "PlatformReadOnly"]);
-    expect(splitNameTail("AWSReservedSSO_PlatformAdministrator_19c2")).toEqual(["AWSReservedSSO_Platform", "Administrator_19c2"]);
+    expect(splitNameTail("LandingZone-PlatformReadOnly")).toEqual([
+      "LandingZone-",
+      "PlatformReadOnly",
+    ]);
+    expect(splitNameTail("AWSReservedSSO_PlatformAdministrator_19c2")).toEqual([
+      "AWSReservedSSO_Platform",
+      "Administrator_19c2",
+    ]);
   });
 
   it("falls back to the last 12 characters", () => {
-    expect(splitNameTail("abcdefghijklmnopqrstuvwxyz")).toEqual(["abcdefghijklmn", "opqrstuvwxyz"]);
-    expect(splitNameTail("prefix-averyveryveryverylongfinalwordthatgoesonandon")[1]).toHaveLength(12);
+    expect(splitNameTail("abcdefghijklmnopqrstuvwxyz")).toEqual([
+      "abcdefghijklmn",
+      "opqrstuvwxyz",
+    ]);
+    expect(
+      splitNameTail("prefix-averyveryveryverylongfinalwordthatgoesonandon")[1]
+    ).toHaveLength(12);
   });
 
   it("leaves short names whole, and always splits losslessly", () => {
     expect(splitNameTail("mgmt")).toEqual(["mgmt", ""]);
     expect(splitNameTail("prod-payments-eu")).toEqual(["prod-payments-eu", ""]);
     expect(splitNameTail(null)).toEqual(["", ""]);
-    for (const n of ["cutspace-landingzone-security-audit", "OrganizationAccountAccessRole", "a.b.c.d.e.f.g.h.i.j.k.l"]) {
+    for (const n of [
+      "cutspace-landingzone-security-audit",
+      "OrganizationAccountAccessRole",
+      "a.b.c.d.e.f.g.h.i.j.k.l",
+    ]) {
       expect(splitNameTail(n).join("")).toBe(n);
     }
   });
@@ -810,19 +1006,54 @@ describe("splitNameTail", () => {
 
 describe("parsePageMaxWidth", () => {
   it("takes a share of the window or pixels", () => {
-    expect(parsePageMaxWidth("90%")).toEqual({ text: "90%", unit: "%", value: 90 });
-    expect(parsePageMaxWidth(" 75 % ")).toEqual({ text: "75%", unit: "%", value: 75 });
-    expect(parsePageMaxWidth("1600px")).toEqual({ text: "1600px", unit: "px", value: 1600 });
-    expect(parsePageMaxWidth("1600 PX")).toEqual({ text: "1600px", unit: "px", value: 1600 });
+    expect(parsePageMaxWidth("90%")).toEqual({
+      text: "90%",
+      unit: "%",
+      value: 90,
+    });
+    expect(parsePageMaxWidth(" 75 % ")).toEqual({
+      text: "75%",
+      unit: "%",
+      value: 75,
+    });
+    expect(parsePageMaxWidth("1600px")).toEqual({
+      text: "1600px",
+      unit: "px",
+      value: 1600,
+    });
+    expect(parsePageMaxWidth("1600 PX")).toEqual({
+      text: "1600px",
+      unit: "px",
+      value: 1600,
+    });
   });
 
   it("reads a bare number as a percentage up to 100, pixels above", () => {
-    expect(parsePageMaxWidth("85")).toEqual({ text: "85%", unit: "%", value: 85 });
-    expect(parsePageMaxWidth("1800")).toEqual({ text: "1800px", unit: "px", value: 1800 });
+    expect(parsePageMaxWidth("85")).toEqual({
+      text: "85%",
+      unit: "%",
+      value: 85,
+    });
+    expect(parsePageMaxWidth("1800")).toEqual({
+      text: "1800px",
+      unit: "px",
+      value: 1800,
+    });
   });
 
   it("refuses widths that are too narrow, too wide or not widths", () => {
-    for (const bad of ["40%", "101%", "900px", "6000px", "wide", "", null, "90vw", "-90%", "1e3"]) {
+    for (const bad of [
+      "40%",
+      "101%",
+      "900px",
+      "6000px",
+      "wide",
+      "",
+      null,
+      "90vw",
+      "-90%",
+      "1e3",
+    ]) {
       expect(parsePageMaxWidth(bad)).toBeNull();
     }
   });
@@ -830,18 +1061,52 @@ describe("parsePageMaxWidth", () => {
 
 describe("sessionRoleKey", () => {
   it("keys a role by account and bare role name, dropping any path", () => {
-    expect(sessionRoleKey("arn:aws:iam::123456789012:role/ReadOnly")).toBe("123456789012/ReadOnly");
-    expect(sessionRoleKey("arn:aws:iam::123456789012:role/team/ops/Admin")).toBe("123456789012/Admin");
-    expect(sessionRoleKey("arn:aws-us-gov:iam::123456789012:role/Dev")).toBe("123456789012/Dev");
+    expect(sessionRoleKey("arn:aws:iam::123456789012:role/ReadOnly")).toBe(
+      "123456789012/ReadOnly"
+    );
+    expect(
+      sessionRoleKey("arn:aws:iam::123456789012:role/team/ops/Admin")
+    ).toBe("123456789012/Admin");
+    expect(sessionRoleKey("arn:aws-us-gov:iam::123456789012:role/Dev")).toBe(
+      "123456789012/Dev"
+    );
     expect(sessionRoleKey("nope")).toBe("");
   });
 });
 
 describe("jump-aware sessions", () => {
-  const profiles = [{ name: "Acme", hub: "900000000001", hubRole: "OrgAdmin", role: "OrgAccess" }];
-  const hub = { differentiator: "900000000001-h", account: "900000000001", role: "OrgAdmin", tabs: 0, expiry: 5000, authTime: 100 };
-  const jumped = { differentiator: "300000000003-j", account: "300000000003", role: "OrgAccess", tabs: 2, expiry: 4000, authTime: 200 };
-  const other = { differentiator: "400000000004-o", account: "400000000004", role: "Auditor", tabs: 0, expiry: 3000, authTime: 50 };
+  const profiles = [
+    {
+      name: "Acme",
+      hub: "900000000001",
+      hubRole: "OrgAdmin",
+      role: "OrgAccess",
+    },
+  ];
+  const hub = {
+    differentiator: "900000000001-h",
+    account: "900000000001",
+    role: "OrgAdmin",
+    tabs: 0,
+    expiry: 5000,
+    authTime: 100,
+  };
+  const jumped = {
+    differentiator: "300000000003-j",
+    account: "300000000003",
+    role: "OrgAccess",
+    tabs: 2,
+    expiry: 4000,
+    authTime: 200,
+  };
+  const other = {
+    differentiator: "400000000004-o",
+    account: "400000000004",
+    role: "Auditor",
+    tabs: 0,
+    expiry: 3000,
+    authTime: 50,
+  };
 
   it("pairs a jumped session with the hub it came through", () => {
     const hubs = jumpHubs([hub, jumped, other], profiles);
@@ -850,18 +1115,36 @@ describe("jump-aware sessions", () => {
   });
 
   it("only pairs with a hub session that started first, and the right hub role", () => {
-    expect(jumpHubs([{ ...hub, authTime: 300 }, jumped], profiles).size).toBe(0);
-    expect(jumpHubs([{ ...hub, role: "ReadOnly" }, jumped], profiles).size).toBe(0);
+    expect(jumpHubs([{ ...hub, authTime: 300 }, jumped], profiles).size).toBe(
+      0
+    );
+    expect(
+      jumpHubs([{ ...hub, role: "ReadOnly" }, jumped], profiles).size
+    ).toBe(0);
     // No hub role in the profile: any session in the hub account will do.
-    expect(jumpHubs([{ ...hub, role: "ReadOnly" }, jumped], [{ ...profiles[0], hubRole: undefined }]).size).toBe(1);
+    expect(
+      jumpHubs(
+        [{ ...hub, role: "ReadOnly" }, jumped],
+        [{ ...profiles[0], hubRole: undefined }]
+      ).size
+    ).toBe(1);
   });
 
   it("never takes a session of a directly sign-in-able role for a jump", () => {
     // ReadOnly in 300000000003 is also a direct role, so its session is direct.
     const direct = { ...jumped, role: "OrgAccess" };
-    expect(jumpHubs([hub, direct], profiles, new Set(["300000000003/OrgAccess"])).size).toBe(0);
-    expect(jumpHubs([hub, direct], profiles, ["300000000003/OrgAccess"]).size).toBe(0);
-    const units = groupSessions([hub, direct], profiles, new Set(["300000000003/OrgAccess"]));
+    expect(
+      jumpHubs([hub, direct], profiles, new Set(["300000000003/OrgAccess"]))
+        .size
+    ).toBe(0);
+    expect(
+      jumpHubs([hub, direct], profiles, ["300000000003/OrgAccess"]).size
+    ).toBe(0);
+    const units = groupSessions(
+      [hub, direct],
+      profiles,
+      new Set(["300000000003/OrgAccess"])
+    );
     expect(units).toHaveLength(2);
     expect(units.every((u) => !u.hub)).toBe(true);
   });
@@ -888,34 +1171,79 @@ describe("planSessionRoom", () => {
   const keys = (...n) => n.map((i) => `22222222222${i}/Role`);
 
   it("needs nothing when the set fits beside the live sessions", () => {
-    expect(planSessionRoom(keys(1, 2, 3), [sess(1, "A"), sess(2, "B")], 5)).toMatchObject({ free: 3, deficit: 0 });
+    expect(
+      planSessionRoom(keys(1, 2, 3), [sess(1, "A"), sess(2, "B")], 5)
+    ).toMatchObject({ free: 3, deficit: 0 });
   });
 
   it("2 live + 5 new: two sessions must go", () => {
-    expect(planSessionRoom(keys(1, 2, 3, 4, 5), [sess(1, "A"), sess(2, "B")], 5)).toMatchObject({ free: 3, deficit: 2 });
+    expect(
+      planSessionRoom(keys(1, 2, 3, 4, 5), [sess(1, "A"), sess(2, "B")], 5)
+    ).toMatchObject({ free: 3, deficit: 2 });
   });
 
   it("a role that's already live opens in its session and needs no slot", () => {
-    const mine = { differentiator: "222222222221-x", account: "222222222221", role: "Role", tabs: 2, expiry: 1 };
-    const plan = planSessionRoom(keys(1, 2, 3), [mine, sess(1, "A"), sess(2, "B"), sess(3, "C")], 5);
-    expect(plan).toMatchObject({ reused: keys(1), fresh: keys(2, 3), free: 1, deficit: 1 });
+    const mine = {
+      differentiator: "222222222221-x",
+      account: "222222222221",
+      role: "Role",
+      tabs: 2,
+      expiry: 1,
+    };
+    const plan = planSessionRoom(
+      keys(1, 2, 3),
+      [mine, sess(1, "A"), sess(2, "B"), sess(3, "C")],
+      5
+    );
+    expect(plan).toMatchObject({
+      reused: keys(1),
+      fresh: keys(2, 3),
+      free: 1,
+      deficit: 1,
+    });
     expect(plan.keep.get(keys(1)[0])).toBe(mine);
   });
 
   it("opens in the busiest of two sessions of one role", () => {
-    const busy = { differentiator: "222222222221-a", account: "222222222221", role: "Role", tabs: 3, expiry: 1 };
-    const dup = { differentiator: "222222222221-b", account: "222222222221", role: "Role", tabs: 0, expiry: 2 };
-    expect(planSessionRoom(keys(1), [dup, busy], 5).keep.get(keys(1)[0])).toBe(busy);
+    const busy = {
+      differentiator: "222222222221-a",
+      account: "222222222221",
+      role: "Role",
+      tabs: 3,
+      expiry: 1,
+    };
+    const dup = {
+      differentiator: "222222222221-b",
+      account: "222222222221",
+      role: "Role",
+      tabs: 0,
+      expiry: 2,
+    };
+    expect(planSessionRoom(keys(1), [dup, busy], 5).keep.get(keys(1)[0])).toBe(
+      busy
+    );
   });
 
   it("copes with a missing session list", () => {
-    expect(planSessionRoom(keys(1), null, 5)).toMatchObject({ free: 5, deficit: 0, reused: [], fresh: keys(1) });
+    expect(planSessionRoom(keys(1), null, 5)).toMatchObject({
+      free: 5,
+      deficit: 0,
+      reused: [],
+      fresh: keys(1),
+    });
   });
 });
 
 describe("normalizeChipOrder", () => {
   it("keeps known groups with unique string ids", () => {
-    expect(normalizeChipOrder({ tag: ["b", "a", "b", 3, ""], org: [], nope: ["x"], env: "x" })).toEqual({ tag: ["b", "a"] });
+    expect(
+      normalizeChipOrder({
+        tag: ["b", "a", "b", 3, ""],
+        org: [],
+        nope: ["x"],
+        env: "x",
+      })
+    ).toEqual({ tag: ["b", "a"] });
   });
   it("returns {} for non-objects", () => {
     expect(normalizeChipOrder(null)).toEqual({});
@@ -926,10 +1254,17 @@ describe("normalizeChipOrder", () => {
 describe("orderByIds", () => {
   const id = (x) => x;
   it("puts placed items in stored order, others after", () => {
-    expect(orderByIds(["a", "b", "c", "d"], ["c", "a"], id)).toEqual(["c", "a", "b", "d"]);
+    expect(orderByIds(["a", "b", "c", "d"], ["c", "a"], id)).toEqual([
+      "c",
+      "a",
+      "b",
+      "d",
+    ]);
   });
   it("puts unplaced items first with newFirst", () => {
-    expect(orderByIds(["a", "b", "c", "d"], ["c", "a"], id, { newFirst: true })).toEqual(["b", "d", "c", "a"]);
+    expect(
+      orderByIds(["a", "b", "c", "d"], ["c", "a"], id, { newFirst: true })
+    ).toEqual(["b", "d", "c", "a"]);
   });
   it("ignores stored ids that no longer exist", () => {
     expect(orderByIds(["a", "b"], ["z", "b"], id)).toEqual(["b", "a"]);
@@ -938,13 +1273,15 @@ describe("orderByIds", () => {
 
 describe("bad bulk-editor lines", () => {
   it("names Account Names lines the parser would drop", () => {
-    const text = "123456789012: Prod\n\n210987654321=Logs\n12345: Short\n999999999999:\nno colon";
+    const text =
+      "123456789012: Prod\n\n210987654321=Logs\n12345: Short\n999999999999:\nno colon";
     expect(badAccountNameLines(text)).toEqual([3, 4, 6]);
     expect(badAccountNameLines("123456789012: Prod\n  \n")).toEqual([]);
   });
 
   it("names Tags lines the parser would drop", () => {
-    const text = "123456789012/Admin: pci, ops\n123456789012: shared\narn:aws:iam::123456789012:role/Admin: x\nops, pci";
+    const text =
+      "123456789012/Admin: pci, ops\n123456789012: shared\narn:aws:iam::123456789012:role/Admin: x\nops, pci";
     expect(badAccountTagLines(text)).toEqual([3, 4]);
     expect(badAccountTagLines("")).toEqual([]);
   });

@@ -1,7 +1,7 @@
 # Privacy Policy — Console Hopper
 
 **Effective date:** 19 May 2026
-**Last updated:** 18 October 2026
+**Last updated:** 21 October 2026
 
 This page explains what Console Hopper (the "extension") does and does
 not do with your data. The short version: **the extension does not
@@ -100,20 +100,6 @@ information, and only when you use **Launch Sets**. It is declared as
   never put in a URL, never logged, and never sent to the extension's
   authors, to Google, or to anyone else.
 
-## The identity-provider link (expired sign-ins)
-
-AWS accepts a SAML sign-in page for only about five minutes after your
-identity provider issues it. Once that window passes, Console Hopper
-shows a banner across the top of the page offering a **Sign in again**
-link back to your identity provider. To build that link it reads the
-page's **referrer** — the address of the page that sent you to the AWS
-sign-in page — and keeps **only its origin** (for example
-`https://login.example.com`), never the full address or any query it
-carried. The origin is read on the page, used only for that link, and
-is **never stored, logged, or transmitted**. When the referrer is
-missing, is not an `http(s)` address, or is an AWS address, no link is
-offered.
-
 ## Data the extension does NOT collect
 
 The extension does **not**:
@@ -152,7 +138,7 @@ The extension does **not**:
 | `tabs` | To place a newly opened AWS console tab into the correct Chrome tab group; to open a Launch Set's tabs next to the role picker; to open a console tab in a session you're already signed in to; to list your open AWS console tabs when you click **Save open tabs**; to notice a tab group whose AWS session has ended; to tell, when AWS lists no sessions, whether your console tabs' addresses carry a session id (if none do, AWS multi-session support is off and the role picker says how to turn it on); and to close a console session's tabs when you sign that session out. Only AWS console tab addresses are read, and never transmitted. |
 | `tabGroups` | To create and update Chrome tab groups that visually cluster AWS console tabs by account, role, or organisation, and to grey out (and put "Ended" in front of the name of) a group it made whose AWS session has ended. |
 | `cookies` | To delete AWS authentication cookies when you click **Clear AWS Sessions**, signing you out of all AWS consoles at once. The extension only deletes these cookies — it never reads their contents or sends them anywhere. |
-| Host access to `*.aws.amazon.com` (sign-in + console) | To inject the enhanced UI on the SAML sign-in page (and read that page's referrer origin for the expired-sign-in link described above), set the per-tab favicon/title on console pages, clear AWS session cookies, and call AWS's own session endpoints on `signin.aws.amazon.com` — one to list the console sessions open in your browser (and notice ones that have ended), one to sign a session out when you ask. Requests go only to AWS, from your browser, with the cookies you already have. |
+| Host access to `*.aws.amazon.com` (sign-in + console) | To inject the enhanced UI on the SAML sign-in page, set the per-tab favicon/title on console pages, clear AWS session cookies, and call AWS's own session endpoints on `signin.aws.amazon.com` — one to list the console sessions open in your browser (and notice ones that have ended), one to sign a session out when you ask. Requests go only to AWS, from your browser, with the cookies you already have. |
 
 ## Sharing
 

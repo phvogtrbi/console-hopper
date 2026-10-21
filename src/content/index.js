@@ -53,7 +53,6 @@ import {
   decodeSamlResponse,
   samlTimesFrom,
   samlValidUntil,
-  idpOriginFrom,
 } from "./util.js";
 import { createSigninExpiry } from "./signin-expiry.js";
 
@@ -5313,18 +5312,22 @@ import { createSigninExpiry } from "./signin-expiry.js";
     }
 
     // Sign-in validity UI: the banner across the top at expiry, plus the page
-    // attributes that advertise the sign-in's validity. The referrer gives the
-    // IdP origin for the banner's "Sign in again" link (read locally, never
-    // stored or sent). Tick once now, then once a second only until it expires.
+    // attributes that advertise the sign-in's validity.
     signinExpiry = createSigninExpiry({
       until: signinValidity.until,
-      idpOrigin: idpOriginFrom(document.referrer),
     });
     // Tick once now; then once a second only until it expires — and only when
     // there is a time to expire at all (a response with no times never does).
-    if (!signinExpiry.tick() && signinValidity.until !== null) {
+    // On expiry, grey out the Sign In / ⤳ jump row buttons too: posting any of
+    // them would just hit AWS's "redeemed within 5 minutes" error.
+    const reflectExpiry = () => {
+      const dead = signinExpiry.tick();
+      document.body.classList.toggle("tm_signin_expired", dead);
+      return dead;
+    };
+    if (!reflectExpiry() && signinValidity.until !== null) {
       const signinExpiryTimer = setInterval(() => {
-        if (signinExpiry.tick()) clearInterval(signinExpiryTimer);
+        if (reflectExpiry()) clearInterval(signinExpiryTimer);
       }, 1000);
     }
   }
@@ -5531,12 +5534,7 @@ import { createSigninExpiry } from "./signin-expiry.js";
         #tm_signin_expired_banner[hidden] { display: none; }
         #tm_signin_expired_banner .tm_banner_text { max-width: 760px; min-width: 0; }
         #tm_signin_expired_banner strong { font-weight: 600; }
-        #tm_signin_expired_banner .tm_banner_action {
-            display: inline-flex; align-items: center; height: 30px; padding: 0 14px;
-            border-radius: 4px; background: #a7352c; color: #fff;
-            text-decoration: none; font-weight: 500; white-space: nowrap;
-        }
-        #tm_signin_expired_banner .tm_banner_action:hover { background: #8a2b23; }
+        #tm_signin_expired_banner .tm_banner_detail { margin-top: 2px; }
         #tm_signin_expired_banner .tm_banner_x {
             position: absolute; top: 8px; right: 10px;
             width: 28px; height: 28px; border: 0; border-radius: 4px;
@@ -5546,8 +5544,13 @@ import { createSigninExpiry } from "./signin-expiry.js";
         body.tm_theme_dark #tm_signin_expired_banner {
             background: #3b1f1c; border-bottom-color: #6b2f29; color: #f6c4bd;
         }
-        body.tm_theme_dark #tm_signin_expired_banner .tm_banner_action { background: #c4473c; }
-        body.tm_theme_dark #tm_signin_expired_banner .tm_banner_action:hover { background: #a93a30; }
+        /* Once the sign-in has expired, its Sign In / ⤳ jump row buttons can no
+           longer post a usable sign-in — grey them so it's clear they won't
+           work (a click still surfaces the banner or the "too old" toast). */
+        body.tm_signin_expired .tm_signin_button {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+        }
 
         /* Dedicated "Tab group" area between the filters and the search / jump
            rail: one dropdown (By role / By org / Custom tag / Off) with a tag

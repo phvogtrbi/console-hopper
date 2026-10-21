@@ -2,6 +2,10 @@ Console Hopper turns the AWS SAML role-picker into a fast, filterable launcher a
 
 If you have access to dozens — or hundreds — of AWS accounts via SAML SSO, the default role list is a long, unsorted scroll. Console Hopper gives every row a star, a service deep-link, and a one-click sign-in, and gives every open console tab a colour-coded favicon plus an account name in the title.
 
+NEW IN 1.10.0
+
+• Know when a sign-in has gone stale — once your sign-in has expired, a banner across the top of the page says so and tells you to sign in to AWS again through your identity provider, and the Sign In and jump buttons grey out because they can no longer post a working sign-in. Sessions you already have open keep working.
+
 NEW IN 1.8.0
 
 • Already signed in? It opens instead — a role you're already signed in to shows Open instead of Sign In, and opens a tab in that session. Signing in again would replace the session and sign its open tabs out. Launch Sets and jumps reuse live sessions too: a jump never restarts the hub session your other jumps depend on, and a role's extra tabs in a set open in the session its first tab signed in to.

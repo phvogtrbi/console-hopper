@@ -270,7 +270,7 @@ describe("createSigninExpiry", () => {
     expect(root.hasAttribute(EXPIRED_ATTR)).toBe(false);
   });
 
-  it("shows the banner at expiry: first child of body, role=alert, validated link, no key/add-on wording", () => {
+  it("shows the banner at expiry: first child of body, role=alert, no button, no key/add-on wording", () => {
     const body = freshBody();
     let clock = UNTIL - 1000;
     const ctl = createSigninExpiry({
@@ -278,7 +278,6 @@ describe("createSigninExpiry", () => {
       root: freshRoot(),
       body,
       until: UNTIL,
-      idpOrigin: "https://acme.okta.com",
       now: () => clock,
     });
     ctl.tick();
@@ -291,26 +290,14 @@ describe("createSigninExpiry", () => {
     expect(banner.hidden).toBe(false);
     expect(banner.getAttribute("role")).toBe("alert");
     expect(body.firstChild).toBe(banner);
-    const link = banner.querySelector(".tm_banner_action");
-    expect(link.getAttribute("href")).toBe("https://acme.okta.com");
-    expect(link.textContent).toBe("Sign in again");
+    // No "Sign in again" link in 1.9.1 — a referrer origin can be unreachable.
+    expect(banner.querySelector(".tm_banner_action")).toBeNull();
+    expect(banner.querySelector("a")).toBeNull();
     const copy = banner.textContent.toLowerCase();
+    expect(copy).toContain("this sign-in has expired");
+    expect(copy).not.toContain("5 minutes");
     expect(copy).not.toContain("key");
     expect(copy).not.toContain("add-on");
-  });
-
-  it("offers no button when the referrer gives no safe origin", () => {
-    const body = freshBody();
-    const ctl = createSigninExpiry({
-      doc: document,
-      root: freshRoot(),
-      body,
-      until: UNTIL,
-      idpOrigin: "",
-      now: () => UNTIL,
-    });
-    ctl.tick();
-    expect(body.querySelector(".tm_banner_action")).toBeNull();
   });
 
   it("the × hides the banner for the rest of the page's life", () => {

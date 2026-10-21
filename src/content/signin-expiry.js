@@ -21,9 +21,8 @@
 //                                        instant; absent before.
 //   data-console-hopper-expiry-ui        "1" whenever Console Hopper is showing
 //                                        its own expired-sign-in banner
-//                                        (always, in 1.9.0) — the signal for a
-//                                        companion extension to stand its own
-//                                        copy down.
+//                                        (always) — the signal for a companion
+//                                        extension to stand its own copy down.
 //
 // Times and flags only; nothing from the assertion itself is exposed.
 
@@ -38,20 +37,17 @@ export const EXPIRED_BANNER_ID = "tm_signin_expired_banner";
 // another extension.
 const BANNER_TITLE = "This sign-in has expired.";
 const BANNER_BODY =
-  " AWS accepts a sign-in page for about 5 minutes, so new sign-ins from this" +
-  " page will fail. Sessions you already have open still work. Sign in to AWS" +
-  " again through your identity provider.";
+  "New sign-ins from this page won't work — sign in to AWS again through your" +
+  " identity provider.";
 
 // Build the controller for one page. `until` is the ms-since-epoch the sign-in
-// stops being usable (null when the response carried no times); `idpOrigin` is
-// a validated http(s) origin for the "Sign in again" link ("" for none). `now`
-// is injectable so tests can move the clock.
+// stops being usable (null when the response carried no times). `now` is
+// injectable so tests can move the clock.
 export function createSigninExpiry({
   doc = typeof document !== "undefined" ? document : null,
   root = doc && doc.documentElement,
   body = doc && doc.body,
   until = null,
-  idpOrigin = "",
   now = () => Date.now(),
 } = {}) {
   const hasUntil = typeof until === "number" && Number.isFinite(until);
@@ -80,20 +76,12 @@ export function createSigninExpiry({
     text.className = "tm_banner_text";
     const strong = doc.createElement("strong");
     strong.textContent = BANNER_TITLE;
-    const rest = doc.createElement("span");
+    // The detail sits on its own line under the title.
+    const rest = doc.createElement("div");
+    rest.className = "tm_banner_detail";
     rest.textContent = BANNER_BODY;
     text.append(strong, rest);
     el.appendChild(text);
-
-    // A link back to the identity provider, when the referrer gave us a safe
-    // one. No address in the label; no button at all when there is none.
-    if (idpOrigin) {
-      const again = doc.createElement("a");
-      again.className = "tm_banner_action";
-      again.href = idpOrigin;
-      again.textContent = "Sign in again";
-      el.appendChild(again);
-    }
 
     const x = doc.createElement("button");
     x.type = "button";

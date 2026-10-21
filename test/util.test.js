@@ -47,7 +47,6 @@ import {
   SAML_FRESH_MS,
   decodeSamlResponse,
   samlValidUntil,
-  idpOriginFrom,
 } from "../src/content/util.js";
 
 describe("escapeHtml", () => {
@@ -1340,27 +1339,5 @@ describe("samlValidUntil — the one validity rule", () => {
       samlValidUntil({ issueInstant: null, notOnOrAfter: null })
     ).toBeNull();
     expect(samlValidUntil(null)).toBeNull();
-  });
-});
-
-describe("idpOriginFrom", () => {
-  it("keeps only an identity provider's origin", () => {
-    expect(idpOriginFrom("https://acme.okta.com/home/aws/123?x=1")).toBe(
-      "https://acme.okta.com"
-    );
-    expect(idpOriginFrom("http://localhost:4000/saml/login")).toBe(
-      "http://localhost:4000"
-    );
-  });
-  it("offers nothing for AWS's own hosts, other schemes, or no referrer", () => {
-    expect(idpOriginFrom("")).toBe("");
-    expect(idpOriginFrom("not a url")).toBe("");
-    expect(idpOriginFrom("https://signin.aws.amazon.com/saml")).toBe("");
-    expect(idpOriginFrom("https://eu-west-1.signin.aws.amazon.com/saml")).toBe(
-      ""
-    );
-    expect(idpOriginFrom("https://console.amazonaws.cn/")).toBe("");
-    expect(idpOriginFrom("javascript:alert(1)")).toBe("");
-    expect(idpOriginFrom("file:///tmp/x.html")).toBe("");
   });
 });

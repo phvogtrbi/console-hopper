@@ -802,20 +802,3 @@ export const samlValidUntil = (times) => {
   if (times.issueInstant != null) ends.push(times.issueInstant + SAML_FRESH_MS);
   return ends.length ? Math.min(...ends) : null;
 };
-
-// The identity provider's origin from the page's referrer: http(s) only, never
-// AWS's own hosts (a reload or AWS's own redirect would set those), and only
-// the origin. "" when there is none to offer. The expired banner's "Sign in
-// again" link is the sole use; the referrer is read locally, never stored or
-// sent.
-export const idpOriginFrom = (referrer) => {
-  let u;
-  try {
-    u = new URL(String(referrer || ""));
-  } catch (e) {
-    return "";
-  }
-  if (u.protocol !== "https:" && u.protocol !== "http:") return "";
-  if (/(^|\.)(amazon\.com|amazonaws\.com|amazonaws\.cn)$/i.test(u.hostname)) return "";
-  return u.origin;
-};

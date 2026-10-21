@@ -3,6 +3,30 @@
 All notable changes to Console Hopper are listed here. Dates are in
 `YYYY-MM-DD`. Versions follow the value in `manifest.json`.
 
+## 1.10.0 — 2026-10-21
+
+### Added
+
+- **Expired sign-ins grey out the Sign In and jump buttons.** Once a
+  sign-in has expired, every role row's **Sign In** and **⤳ jump** button
+  dims to a not-allowed state, so it's clear they can no longer post a
+  usable sign-in. Clicking one still surfaces the expired banner (or, for
+  Launch Sets and jumps, the "sign-in too old" toast).
+
+### Changed
+
+- **The expired-sign-in banner is simpler.** It no longer shows a "Sign in
+  again" button — that linked to the identity provider using the origin
+  from the page's referrer, which in some corporate setups is a domain that
+  doesn't resolve, so it could lead nowhere. The banner now reads on two
+  lines, without the button and without the "AWS accepts a sign-in page for
+  about five minutes" explanation, simply telling you to sign in to AWS
+  again through your identity provider.
+- Console Hopper no longer reads the page referrer at all, so PRIVACY.md
+  and the store listing drop the referrer disclosure. No new permissions;
+  the `data-console-hopper-signin-until` / `-signin-expired` / `-expiry-ui`
+  page attributes are unchanged.
+
 ## 1.9.0 — 2026-10-18
 
 ### Added

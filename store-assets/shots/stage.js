@@ -56,6 +56,12 @@
     el.remove();
   });
   document.querySelectorAll("#tm_toasts, .tm_toast").forEach(function (el) { el.remove(); });
+  // The expired-sign-in banner (and the greyed Sign In buttons that come with
+  // it) is a transient warning, not the state a store shot should show — clear
+  // it like the toasts above.
+  var expB = document.getElementById("tm_signin_expired_banner");
+  if (expB) expB.remove();
+  document.body.classList.remove("tm_signin_expired");
   var pop = document.getElementById("tm_sessions_popover");
   if (scene === "dark") document.body.classList.add("tm_theme_dark");
   else document.body.classList.remove("tm_theme_dark");
@@ -201,21 +207,60 @@
   // without closing anyone's real tabs. Display-only.
   var idleBtn = document.getElementById("tm_sess_signout_idle");
   var sessRows = document.querySelectorAll(".tm_sess_tr");
+  // Old layout only (label column present → 8 cells): fake one idle row so the
+  // shot carries "Sign out idle". The 1.11.0 one-row-per-session layout has 7
+  // cells and groups a hub with its jumps as a single unit, so this is skipped
+  // — the shot shows the real state and "Sign out all sessions".
   if (scene === "sessions" && idleBtn && getComputedStyle(idleBtn).display === "none" && sessRows.length > 1) {
     var last = sessRows[sessRows.length - 1].children;
-    // Columns: label, account · role, region, tab group, started, expires, tabs.
-    last[2].textContent = "—";
-    last[3].textContent = "—";
-    last[6].textContent = "0";
-    idleBtn.textContent = "Sign out idle (1)";
-    idleBtn.style.setProperty("display", "inline-block", "important");
+    if (last.length >= 8) {
+      // Columns: label, account · role, region, tab group, started, expires, tabs.
+      last[2].textContent = "—";
+      last[3].textContent = "—";
+      last[6].textContent = "0";
+      idleBtn.textContent = "Sign out idle (1)";
+      idleBtn.style.setProperty("display", "inline-block", "important");
+    }
   }
 
   // ---- sessions panel: demo labels ----
   document.querySelectorAll("#tm_sessions_rows .tm_sess_tr").forEach(function (tr, i) {
-    var lab = tr.children[0];
-    if (lab && lab.textContent.trim() !== "—") lab.textContent = LABELS[i % LABELS.length];
+    // One row per session (1.11.0+): a label is a sub-line inside the
+    // account·role cell, not a column of its own — rewrite it only where one
+    // exists, so the account·role cell (children[0] now) is never clobbered.
+    var lab = tr.querySelector(".tm_sess_label");
+    if (lab) lab.textContent = LABELS[i % LABELS.length];
   });
+
+  // Jump destinations shown in the sessions panel can be accounts that aren't
+  // in the role list (a dedicated jump-target role in another account), so they
+  // carry no data-account-id and weren't mapped above. A jump is cross-account,
+  // so the hub and the accounts jumped into from it must read as DIFFERENT
+  // accounts: collect the ids row by row (the hub comes first) and give any
+  // that is unmapped — or whose demo id another session account already uses —
+  // a demo id no other session account has, so the scrub rewrites it and the
+  // leak check passes.
+  var sessUsed = {}, sessAll = [];
+  document.querySelectorAll("#tm_sessions_rows .tm_sess_tr").forEach(function (tr) {
+    (tr.innerText.match(/\b\d{12}\b/g) || []).forEach(function (id) {
+      // Only real account ids need mapping. Skip anything already a demo value
+      // (a second pass re-scanning rows the first pass already rewrote), or it
+      // would be taken for real data and trip the leak check.
+      if (IDS.indexOf(id) === -1 && sessAll.indexOf(id) === -1) sessAll.push(id);
+    });
+  });
+  sessAll.forEach(function (id) {
+    var cur = idMap[id];
+    if (cur && !sessUsed[cur]) { sessUsed[cur] = 1; return; }
+    for (var j = 0; j < IDS.length; j++) {
+      var cand = IDS[(n + j) % IDS.length];
+      if (!sessUsed[cand]) {
+        idMap[id] = cand; nameMap[id] = NAMES[(n + j) % NAMES.length];
+        sessUsed[cand] = 1; n++; break;
+      }
+    }
+  });
+  realIds = Object.keys(idMap);
 
   // ---- generic pass: any real id / CH role / set name left in text or options ----
   // AWS service names must not appear in a store screenshot (flagged on an

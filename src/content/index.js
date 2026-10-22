@@ -5536,12 +5536,6 @@ import { createSigninExpiry } from "./signin-expiry.js";
         #tm_signin_expired_banner .tm_banner_text { max-width: 760px; min-width: 0; }
         #tm_signin_expired_banner strong { font-weight: 600; }
         #tm_signin_expired_banner .tm_banner_detail { margin-top: 2px; }
-        #tm_signin_expired_banner .tm_banner_x {
-            position: absolute; top: 8px; right: 10px;
-            width: 28px; height: 28px; border: 0; border-radius: 4px;
-            background: none; color: inherit; font-size: 20px; line-height: 1; cursor: pointer;
-        }
-        #tm_signin_expired_banner .tm_banner_x:hover { background: rgba(0, 0, 0, 0.06); }
         body.tm_theme_dark #tm_signin_expired_banner {
             background: #3b1f1c; border-bottom-color: #6b2f29; color: #f6c4bd;
         }

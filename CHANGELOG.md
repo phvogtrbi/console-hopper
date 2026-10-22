@@ -17,6 +17,11 @@ All notable changes to Console Hopper are listed here. Dates are in
   with the count. The near-always-empty **Label** column is gone — a session's
   jump label now shows as a second line under its account · role.
 
+- **The expired-sign-in warning can no longer be dismissed.** An expired
+  sign-in is a standing condition — new sign-ins from that page won't work
+  until you sign in again — so the banner no longer carries a close button
+  that only hid the warning; it stays until the sign-in is renewed.
+
 ### Added
 
 - **Per-session sign-out.** Each row's **✕** signs out just that session; a

@@ -300,7 +300,7 @@ describe("createSigninExpiry", () => {
     expect(copy).not.toContain("add-on");
   });
 
-  it("the × hides the banner for the rest of the page's life", () => {
+  it("has no dismiss button and stays up while the sign-in is expired", () => {
     const body = freshBody();
     const ctl = createSigninExpiry({
       doc: document,
@@ -311,13 +311,15 @@ describe("createSigninExpiry", () => {
     });
     ctl.tick();
     const banner = body.querySelector("#tm_signin_expired_banner");
-    banner.querySelector(".tm_banner_x").click();
-    expect(banner.hidden).toBe(true);
+    // An expired sign-in is a standing condition, so there is no way to close it.
+    expect(banner.querySelector(".tm_banner_x")).toBeNull();
+    expect(banner.querySelector("button")).toBeNull();
+    expect(banner.hidden).toBe(false);
     ctl.tick();
-    expect(banner.hidden).toBe(true);
+    expect(banner.hidden).toBe(false);
   });
 
-  it("the Sign In guard reveals a dismissed banner again", () => {
+  it("the Sign In guard keeps the warning shown", () => {
     const body = freshBody();
     const ctl = createSigninExpiry({
       doc: document,
@@ -328,8 +330,7 @@ describe("createSigninExpiry", () => {
     });
     ctl.tick();
     const banner = body.querySelector("#tm_signin_expired_banner");
-    banner.querySelector(".tm_banner_x").click();
-    expect(banner.hidden).toBe(true);
+    expect(banner.hidden).toBe(false);
     ctl.revealBanner();
     expect(banner.hidden).toBe(false);
   });

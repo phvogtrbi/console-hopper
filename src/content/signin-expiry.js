@@ -63,7 +63,6 @@ export function createSigninExpiry({
   const isExpired = () => hasUntil && now() >= until;
 
   let banner = null;
-  let bannerDismissed = false;
 
   const buildBanner = () => {
     const el = doc.createElement("div");
@@ -82,24 +81,14 @@ export function createSigninExpiry({
     rest.textContent = BANNER_BODY;
     text.append(strong, rest);
     el.appendChild(text);
-
-    const x = doc.createElement("button");
-    x.type = "button";
-    x.className = "tm_banner_x";
-    x.setAttribute("aria-label", "Hide this message");
-    x.title = "Hide this message";
-    x.textContent = "×";
-    x.addEventListener("click", (e) => {
-      e.preventDefault();
-      bannerDismissed = true;
-      if (banner) banner.hidden = true;
-    });
-    el.appendChild(x);
+    // No dismiss affordance: an expired sign-in is a standing condition — new
+    // sign-ins from this page won't work — so the warning stays until the page
+    // is signed in afresh and the tick below hides it.
     return el;
   };
 
   const showBanner = () => {
-    if (bannerDismissed || !body) return;
+    if (!body) return;
     if (!banner) {
       banner = buildBanner();
       body.insertBefore(banner, body.firstChild);
@@ -111,10 +100,10 @@ export function createSigninExpiry({
     if (banner) banner.hidden = true;
   };
 
-  // The Sign In guard calls this: a dismissed banner comes back the moment a
-  // click would have posted a sign-in the page can no longer make.
+  // The Sign In guard calls this to make sure the warning is up before a click
+  // that would post a sign-in the page can no longer make. The banner can't be
+  // dismissed now, so this just ensures it's shown.
   const revealBanner = () => {
-    bannerDismissed = false;
     showBanner();
   };
 

@@ -4,6 +4,7 @@ import {
   launchSetRoleCount,
   normalizeLaunchSets,
   groupSessions,
+  sessionRows,
   jumpHubs,
   parsePageMaxWidth,
   splitNameTail,
@@ -1159,6 +1160,61 @@ describe("jump-aware sessions", () => {
     expect(pair.ids).toEqual(["900000000001-h", "300000000003-j"]);
     expect(pair.tabs).toBe(2);
     expect(pair.expiry).toBe(4000);
+  });
+
+  it("lists one row per session: a hub, its jump indented, then directs", () => {
+    const rows = sessionRows(groupSessions([hub, jumped, other], profiles));
+    expect(rows).toHaveLength(3); // was 2 units, but 3 live sessions
+    const hubRow = rows.find((r) => r.session === hub);
+    const jumpRow = rows.find((r) => r.session === jumped);
+    const directRow = rows.find((r) => r.session === other);
+    expect([hubRow.kind, jumpRow.kind, directRow.kind]).toEqual([
+      "hub",
+      "jump",
+      "direct",
+    ]);
+    // the jump is listed immediately beneath its hub
+    expect(rows.indexOf(jumpRow)).toBe(rows.indexOf(hubRow) + 1);
+    // a hub's ✕ carries the whole unit; a jump's ✕ ends only itself
+    expect(hubRow.ids).toEqual(["900000000001-h", "300000000003-j"]);
+    expect(jumpRow.ids).toEqual(["300000000003-j"]);
+    expect(hubRow.jumps).toEqual([jumped]);
+    // hub and its jumps share a group key (for the cascade tint)
+    expect(hubRow.grp).toBe("900000000001-h");
+    expect(jumpRow.grp).toBe("900000000001-h");
+    expect(directRow.grp).toBe("400000000004-o");
+    // hub row's `tabs` is the unit total (drives its cascade confirm); the
+    // jump and direct rows carry their own.
+    expect(hubRow.tabs).toBe(2);
+    expect(jumpRow.tabs).toBe(2);
+    expect(directRow.tabs).toBe(0);
+  });
+
+  it("orders a hub's jumps oldest-first beneath it", () => {
+    const j2 = {
+      differentiator: "300000000003-j2",
+      account: "300000000003",
+      role: "OrgAccess",
+      tabs: 0,
+      expiry: 4200,
+      authTime: 400, // started after `jumped` (authTime 200)
+    };
+    const rows = sessionRows(groupSessions([hub, jumped, j2], profiles));
+    expect(rows.map((r) => r.session.differentiator)).toEqual([
+      "900000000001-h",
+      "300000000003-j",
+      "300000000003-j2",
+    ]);
+    expect(rows[0].jumps.map((j) => j.differentiator)).toEqual([
+      "300000000003-j",
+      "300000000003-j2",
+    ]);
+    expect(rows[0].ids).toContain("300000000003-j2");
+  });
+
+  it("returns an empty list for no units", () => {
+    expect(sessionRows([])).toEqual([]);
+    expect(sessionRows(null)).toEqual([]);
   });
 });
 

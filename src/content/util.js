@@ -683,7 +683,7 @@ export const splitNameTail = (name) => {
 
 // The session helpers live in src/shared/sessions.js, which the service
 // worker shares; re-exported here so the picker imports them like the rest.
-export { sessionRoleKey, jumpHubs, groupSessions, planSessionRoom } from "../shared/sessions.js";
+export { sessionRoleKey, jumpHubs, groupSessions, sessionRows, planSessionRoom } from "../shared/sessions.js";
 
 // Filter-row chip order: { group -> [chip id, ...] }, set by dragging in a
 // row's "show all" list. Only the order the user placed is stored; chips it

@@ -67,6 +67,34 @@ export const groupSessions = (sessions, profiles, directKeys) => {
   return units;
 };
 
+// One display row per live session, so the dialog's rows reconcile with the
+// "N of 5" count. A unit's hub becomes a "hub" row carrying the whole unit's
+// ids (its ✕ ends the jumps with it); each session jumped through that hub
+// follows as a "jump" row that signs out only itself; a session with no hub is
+// a plain "direct" row. Units keep the order they're given; a hub's jumps are
+// listed oldest-first beneath it. Each row carries `grp` — the hub's id for a
+// hub and its jumps, the session's own id otherwise — so the ✕'s two-step can
+// tint exactly the rows that would sign out together.
+export const sessionRows = (units) => {
+  const out = [];
+  for (const u of Array.isArray(units) ? units : []) {
+    if (u.hub) {
+      const jumps = u.sessions
+        .filter((m) => m !== u.hub)
+        .sort((a, b) => (a.authTime || 0) - (b.authTime || 0));
+      const grp = u.hub.differentiator;
+      out.push({ kind: "hub", session: u.hub, hub: u.hub, jumps, grp, ids: u.ids.slice(), tabs: u.tabs });
+      for (const j of jumps) {
+        out.push({ kind: "jump", session: j, hub: u.hub, jumps: [], grp, ids: [j.differentiator], tabs: j.tabs || 0 });
+      }
+    } else {
+      const s = u.sessions[0];
+      out.push({ kind: "direct", session: s, hub: null, jumps: [], grp: s.differentiator, ids: u.ids.slice(), tabs: u.tabs });
+    }
+  }
+  return out;
+};
+
 // Opening a set against AWS's session cap. `roleKeys` are the set's roles in
 // set order ("account/Role", see sessionRoleKey); `sessions` the live list
 // ({ differentiator, account, role, tabs, expiry }). A role with a live

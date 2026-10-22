@@ -43,6 +43,7 @@ import {
   normalizeLaunchSets,
   launchSetRoleCount,
   groupSessions,
+  sessionRows,
   planSessionRoom,
   sessionRoleKey,
   LAUNCH_SET_MAX_TABS,
@@ -5622,8 +5623,9 @@ import { createSigninExpiry } from "./signin-expiry.js";
             /* The three time/count columns are sized to their VALUES ("13m ago",
                "47m", "1") — their headers are the widest thing in them, so any
                extra width there is dead space stolen from the two columns that
-               actually truncate. */
-            grid-template-columns: 1fr 2fr 100px 214px 84px 60px 40px 28px !important;
+               actually truncate. Account·role takes all the slack (the Label
+               column was dropped — it's a second line under account·role now). */
+            grid-template-columns: minmax(0, 1fr) 100px 214px 84px 60px 40px 28px !important;
             gap: 16px !important; align-items: center !important;
         }
         /* Horizontal padding on the rows (matched by the header so columns stay
@@ -5650,6 +5652,28 @@ import { createSigninExpiry } from "./signin-expiry.js";
         .tm_sess_del.tm_confirm_del {
             color: white !important; background-color: #c0392b !important; font-size: 11px !important;
         }
+        /* One row per session: the account·role cell stacks an optional label
+           line under the name, a jump sits indented under its hub, and a hub
+           carries a small "hub · N jumps" pill. */
+        .tm_sess_who { display: flex !important; flex-direction: column !important; min-width: 0 !important; gap: 2px !important; }
+        .tm_sess_who_main { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+        .tm_sess_label { font-size: 11px !important; color: #8a9199 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+        .tm_sess_jump .tm_sess_who { padding-left: 22px !important; }
+        .tm_sess_via { color: #8a9199 !important; }
+        .tm_sess_hubbadge {
+            display: inline-block !important; margin-left: 8px !important; font-size: 11px !important;
+            color: #545b64 !important; background: #eef2f6 !important; border-radius: 999px !important;
+            padding: 1px 8px !important; vertical-align: 1px !important;
+        }
+        .tm_sess_caption { font-size: 12px !important; color: #8a9199 !important; padding: 8px 12px 2px !important; }
+        /* Arming a hub's ✕ tints the hub and its jumps together, so it's plain
+           which sessions the one click would end. */
+        .tm_sess_cascade { background: #fdecea !important; }
+        .tm_sess_cascade:hover { background: #fbe1de !important; }
+        body.tm_theme_dark .tm_sess_via, body.tm_theme_dark .tm_sess_label, body.tm_theme_dark .tm_sess_caption { color: #adb5bd !important; }
+        body.tm_theme_dark .tm_sess_hubbadge { background: #2f353d !important; color: #c7ccd1 !important; }
+        body.tm_theme_dark .tm_sess_cascade { background: #3d2422 !important; }
+        body.tm_theme_dark .tm_sess_cascade:hover { background: #46302c !important; }
         /* While the panel is open a near-invisible scrim sits between it and
            the page. It exists to EAT clicks: the ✕ column and the sign-out-all
            button align directly over the listing's Sign In buttons, so a stray
@@ -7894,6 +7918,16 @@ import { createSigninExpiry } from "./signin-expiry.js";
     const $row = $(el).closest(".tm_sess_tr");
     const ids = String($row.attr("data-ids") || "").split(",").filter(Boolean);
     if (!ids.length) return;
+    // A hub row carries its whole unit's ids; arming its ✕ tints the hub and
+    // its jumps so it's plain they go together. A single-session row tints
+    // only itself.
+    const grp = String($row.attr("data-grp") || "");
+    const onArm = () => {
+      const $tint = ids.length > 1 && grp
+        ? $(".tm_sess_tr").filter((_, el) => el.getAttribute("data-grp") === grp)
+        : $row;
+      $tint.addClass("tm_sess_cascade");
+    };
     const run = () => {
       showToast(ids.length > 1 ? "Signing out that jump…" : "Signing out that session…", "info", CONFIG.TOAST_DURATION);
       chrome.runtime.sendMessage(
@@ -7922,8 +7956,8 @@ import { createSigninExpiry } from "./signin-expiry.js";
       );
     };
     // Same rule as the Open-set dialog: an idle session signs out on one
-    // click; one with tabs open asks once more.
-    if (Number($row.attr("data-tabs")) > 0) twoStepDelete($(el), el, run);
+    // click; one with tabs open asks once more (and tints the cascade).
+    if (Number($row.attr("data-tabs")) > 0) twoStepDelete($(el), el, run, onArm);
     else run();
   });
 
@@ -8054,21 +8088,25 @@ import { createSigninExpiry } from "./signin-expiry.js";
     clearTimeout(confirmDelArmTimer);
     confirmDelArmTimer = null;
     $(".tm_confirm_del").removeClass("tm_confirm_del");
+    $(".tm_sess_cascade").removeClass("tm_sess_cascade"); // the hub-cascade tint
   };
-  const armConfirmDelete = ($el, delEl) => {
+  // `onArm` runs when the ✕ first arms (not on the confirming second click): the
+  // sessions panel uses it to tint the rows a hub's ✕ would take along.
+  const armConfirmDelete = ($el, delEl, onArm) => {
     disarmConfirmDelete();
     $el.addClass("tm_confirm_del");
     if (delEl && delEl.setAttribute) delEl.setAttribute("title", "Click again to remove");
     confirmDelArmTimer = setTimeout(disarmConfirmDelete, 3500);
+    if (onArm) onArm();
   };
   // Drive a ✕ click's two-step: first click arms $armEl (red "click again"),
   // second confirms. Shared by the shortcut chips, jump rows, and tag pills.
-  const twoStepDelete = ($armEl, delEl, onConfirm) => {
+  const twoStepDelete = ($armEl, delEl, onConfirm, onArm) => {
     if ($armEl.hasClass("tm_confirm_del")) {
       disarmConfirmDelete();
       onConfirm();
     } else {
-      armConfirmDelete($armEl, delEl);
+      armConfirmDelete($armEl, delEl, onArm);
     }
   };
   // Any click not inside the armed element cancels the pending delete.
@@ -9017,76 +9055,93 @@ IAM: &quot;iam/home&quot;">${currentServices}</textarea>
     $("#tm_sess_signout_all")
       .text(`Sign out all sessions (${sessionsCache.length})`)
       .show();
-    // A jump is one row: its hub has no tab of its own (the tab moved on to
-    // the destination) but isn't idle while the jumped session has tabs, and
-    // the two sign out together — as in the Open-set dialog.
+    // One row per live session, so the rows reconcile with the "N of 5" count.
+    // A jump still pairs with the hub it came through (groupSessions), but the
+    // hub is now its own row and each jump is listed, indented, beneath it.
     const units = groupSessions(sessionsCache, AssumeProfilesManager.all(), directRoleKeys());
     const idleCount = units.filter((u) => !u.tabs).reduce((n, u) => n + u.ids.length, 0);
     if (idleCount) $("#tm_sess_signout_idle").text(`Sign out idle (${idleCount})`).show();
     else $("#tm_sess_signout_idle").hide();
-    const header =
-      `<div class="tm_sess_th"><span>Label</span><span>Account &middot; role</span>` +
-      `<span>Region</span><span>Tab group</span><span>Started</span><span>Expires</span><span>Tabs</span><span></span></div>`;
+    // Oldest unit first (the session you're most likely done with sits at the
+    // top); sessionRows then lists a hub's jumps, oldest-first, beneath it.
     const startedOf = (u) => Math.min(...u.sessions.map((m) => m.authTime || Infinity));
-    // Oldest first: the session you're most likely done with sits at the top.
-    const body = units
-      .slice()
-      .sort((a, b) => startedOf(a) - startedOf(b))
-      .map((u) => {
-        // A jump's destination carries its label, region and tab group; the
-        // hub has no tab of its own.
-        const main = (u.hub && u.sessions.find((m) => m !== u.hub)) || u.sessions[0];
-        // AWS has no per-session label of its own — the ARN's session name is
-        // just the SAML RoleSessionName (your email), identical on every row and
-        // so worth nothing as a column. Show only the label you gave the jump
-        // that created this session; the session name stays in the row tooltip.
-        const label = jumpLabelFor(main.account, main.role);
-        const who = `${u.hub ? "⤳ " : ""}${unitWho(u)}`;
-        const regions = [...new Set(u.sessions.flatMap((m) => m.regions || []))].join(", ") || "—";
-        const groupTitle = (u.sessions.find((m) => m !== u.hub && m.group) || {}).group || "";
+    const ordered = units.slice().sort((a, b) => startedOf(a) - startedOf(b));
+    const rows = sessionRows(ordered);
+    // The label is now a second line under the account·role, not its own column
+    // — it's set only on jumps you named, and was empty on every other row.
+    const header =
+      `<div class="tm_sess_th"><span>Account &middot; role</span>` +
+      `<span>Region</span><span>Tab group</span><span>Started</span><span>Expires</span><span>Tabs</span><span></span></div>`;
+    const accountLabel = (s) => AccountNamesManager.nameFor(s.account) || s.alias || s.account || "unknown";
+    const body = rows
+      .map((r) => {
+        const s = r.session;
+        // The label you typed for this jump, if any; shown as a second line.
+        const label = jumpLabelFor(s.account, s.role);
+        // hub: "name · role" + a "hub · N jumps" badge; jump: "⤳ via <hub>"
+        // then the destination; direct: just the session.
+        const whoMain =
+          r.kind === "jump"
+            ? `<span class="tm_sess_via">⤳ via ${escapeHtml(accountLabel(r.hub))}</span> · ${escapeHtml(sessionWho(s))}`
+            : r.kind === "hub"
+              ? `${escapeHtml(sessionWho(s))}<span class="tm_sess_hubbadge">hub &middot; ${escapeHtml(plural(r.jumps.length, "jump"))}</span>`
+              : escapeHtml(sessionWho(s));
+        const regions = [...new Set(s.regions || [])].join(", ") || "—";
+        // A hub has no console tab of its own (the tab moved on to the jump), so
+        // it never carries a tab group.
+        const groupTitle = (r.kind === "hub" ? "" : s.group) || "";
         // Chrome tab-group titles often start with an emoji run straight into
         // the first word ("✅Claude"); space it so it reads as a label.
         const group = groupTitle.replace(/^(\p{Extended_Pictographic}+)(?=\S)/u, "$1 ") || "—";
-        const started = startedOf(u);
         // Every session is signable-out from here: the picker page is not itself
-        // inside a console session, so there is no "current" one to protect —
-        // and no row is singled out, which would only imply otherwise.
-        const what = u.hub ? "Sign out this jump" : "Sign this session out";
-        const action = `<span class="tm_sess_del" role="button" tabindex="-1" title="${u.tabs ? `${what} and close its ${plural(u.tabs, "tab")}` : what}" aria-label="${what}">&#10005;</span>`;
+        // inside a console session, so there is no "current" one to protect. A
+        // hub's ✕ takes its jumps with it; a jump's ✕ ends only that jump.
+        const what =
+          r.kind === "hub"
+            ? `Sign out ${sessionWho(s)} and its ${plural(r.jumps.length, "jump")}`
+            : r.kind === "jump"
+              ? "Sign out this jump"
+              : "Sign this session out";
+        const title = r.tabs ? `${what} and close ${plural(r.tabs, "tab")}` : what;
+        const action = `<span class="tm_sess_del" role="button" tabindex="-1" title="${escapeHtml(title)}" aria-label="${escapeHtml(what)}">&#10005;</span>`;
         // Title on the ROW, not just the truncating cells, so hovering anywhere
         // along it shows the full detail — the columns that never truncate
         // (started, expires, tabs) would otherwise be dead to the pointer.
+        const name = AccountNamesManager.nameFor(s.account) || s.alias || "";
         const rowTitle = [
           label ? `Session: ${label}` : "",
-          u.hub ? `Jump through ${sessionWho(u.hub)}` : "",
-          ...u.sessions.filter((m) => m !== u.hub).map((m) => {
-            const name = AccountNamesManager.nameFor(m.account) || m.alias || "";
-            return [
-              `Account: ${m.account}${name && name !== m.account ? ` (${name})` : ""}`,
-              m.role ? `Role: ${m.role}` : "",
-            ].filter(Boolean).join("\n");
-          }),
-          main.sessionName ? `Signed in as: ${main.sessionName}` : "",
+          r.kind === "jump" ? `Jumped in through ${sessionWho(r.hub)}` : "",
+          r.kind === "hub" ? `Hub for ${plural(r.jumps.length, "jump")} — signing it out ends them too` : "",
+          `Account: ${s.account}${name && name !== s.account ? ` (${name})` : ""}`,
+          s.role ? `Role: ${s.role}` : "",
+          s.sessionName ? `Signed in as: ${s.sessionName}` : "",
           regions !== "—" ? `Region: ${regions}` : "",
           groupTitle ? `Tab group: ${groupTitle}` : "",
         ]
           .filter(Boolean)
           .join("\n");
+        const classes = `tm_sess_tr${r.kind === "jump" ? " tm_sess_jump" : ""}${r.kind === "hub" ? " tm_sess_hub" : ""}`;
+        const labelLine = label ? `<span class="tm_sess_label">${escapeHtml(label)}</span>` : "";
         return (
-          `<div class="tm_sess_tr" data-ids="${escapeHtml(u.ids.join(","))}" data-tabs="${u.tabs}" title="${escapeHtml(rowTitle)}">` +
-            `<span class="tm_sess_name">${escapeHtml(label || "—")}</span>` +
-            `<span class="tm_sess_name">${escapeHtml(who)}</span>` +
+          `<div class="${classes}" data-ids="${escapeHtml(r.ids.join(","))}" data-grp="${escapeHtml(r.grp)}" data-tabs="${r.tabs}" title="${escapeHtml(rowTitle)}">` +
+            `<span class="tm_sess_who"><span class="tm_sess_who_main">${whoMain}</span>${labelLine}</span>` +
             `<span class="tm_sess_meta">${escapeHtml(regions)}</span>` +
             `<span class="tm_sess_meta">${escapeHtml(group)}</span>` +
-            `<span class="tm_sess_meta">${Number.isFinite(started) ? `${escapeHtml(describeAge(started))} ago` : "—"}</span>` +
-            `<span class="tm_sess_meta">${escapeHtml(describeRemaining(u.expiry))}</span>` +
-            `<span class="tm_sess_meta">${escapeHtml(String(u.tabs || 0))}</span>` +
+            `<span class="tm_sess_meta">${s.authTime ? `${escapeHtml(describeAge(s.authTime))} ago` : "—"}</span>` +
+            `<span class="tm_sess_meta">${escapeHtml(describeRemaining(s.expiry))}</span>` +
+            `<span class="tm_sess_meta">${escapeHtml(String(s.tabs || 0))}</span>` +
             action +
           `</div>`
         );
       })
       .join("");
-    $rows.html(header + body);
+    // Only when there's a jump to explain: directly-signed-in (hubs included)
+    // vs reached-by-jumping, so the row count reads easily against "N of 5".
+    const jumped = rows.filter((r) => r.kind === "jump").length;
+    const caption = jumped
+      ? `<div class="tm_sess_caption">${rows.length - jumped} signed in directly &middot; ${jumped} reached by jumping</div>`
+      : "";
+    $rows.html(caption + header + body);
   };
 
   // The chip and panel for "multi-session support is off": no count (there is

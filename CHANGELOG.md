@@ -3,6 +3,27 @@
 All notable changes to Console Hopper are listed here. Dates are in
 `YYYY-MM-DD`. Versions follow the value in `manifest.json`.
 
+## 1.11.0 — 2026-10-22
+
+### Changed
+
+- **The Active AWS sessions dialog shows one row per session.** A jump used
+  to fold its hub and every session reached through it into a single row, so a
+  hub with more than one jump pushed the extra sessions off the end of that row
+  — the panel read "5 of 5" while only three rows showed, and those sessions
+  couldn't be seen or signed out on their own. Now every live session has its
+  own row: a hub carries a **hub · N jumps** badge, each jumped session sits
+  indented beneath it as **⤳ via &lt;hub&gt;**, and the rows always reconcile
+  with the count. The near-always-empty **Label** column is gone — a session's
+  jump label now shows as a second line under its account · role.
+
+### Added
+
+- **Per-session sign-out.** Each row's **✕** signs out just that session; a
+  hub's **✕** still takes its jumps with it, and now tints the hub and those
+  jumps together on the confirming click, so it's clear which sessions one
+  click would end.
+
 ## 1.10.0 — 2026-10-21
 
 ### Added

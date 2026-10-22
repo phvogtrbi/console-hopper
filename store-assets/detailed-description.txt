@@ -2,6 +2,10 @@ Console Hopper turns the AWS SAML role-picker into a fast, filterable launcher a
 
 If you have access to dozens — or hundreds — of AWS accounts via SAML SSO, the default role list is a long, unsorted scroll. Console Hopper gives every row a star, a service deep-link, and a one-click sign-in, and gives every open console tab a colour-coded favicon plus an account name in the title.
 
+NEW IN 1.11.0
+
+• One row per session in the Active AWS sessions panel — a jump used to fold its hub and the sessions reached through it into a single row, so a hub with more than one jump could push sessions out of sight. Now every session has its own row: a hub is marked "hub · N jumps" and each jump sits indented beneath it, so the rows always match the "N of 5" count. Sign a single session out on its own, or a hub takes its jumps with it and highlights them on the confirm.
+
 NEW IN 1.10.0
 
 • Know when a sign-in has gone stale — once your sign-in has expired, a banner across the top of the page says so and tells you to sign in to AWS again through your identity provider, and the Sign In and jump buttons grey out because they can no longer post a working sign-in. Sessions you already have open keep working.
@@ -15,7 +19,7 @@ NEW IN 1.8.0
 • Ended sessions — when an AWS session ends while its tabs are still open, the tab group Console Hopper made for it turns grey and reads "Ended · …", so the tab strip matches what's really signed in.
 • Multi-session off? It says so — Console Hopper's session features (the session counter, Open on a role you're already signed in to, making room for a Launch Set) need AWS multi-session support, which AWS leaves off until you turn it on. When it's off, the counter reads "Multi-session is off" and shows how to turn it on, instead of showing nothing.
 • Jumps follow the new-tab rule — ⌘/Ctrl-click or middle-click on a jump opens it in a new tab, like any role.
-• The sessions panel shows a jump and its hub as one row and signs them out together; "Sign out idle" no longer counts a hub as idle while its jumps are in use.
+• The sessions panel signs a hub and the sessions jumped through it out together; "Sign out idle" no longer counts a hub as idle while its jumps are in use.
 • Fixes — console tabs stay in their region in the first minutes after a sign-in too; Account Names and Tags point out lines they can't read instead of dropping them; a tab title keeps its account prefix once; toasts stack instead of overlapping.
 
 NEW IN 1.7.0
@@ -74,7 +78,7 @@ Console Hopper drops each new console tab into a Chrome tab group: by role, by o
 Configure which role-name keywords (default: "admin") and which account types are sensitive. Signing into a matching role/account pops a "are you sure?" modal so you don't accidentally land in production.
 
 • Active AWS sessions
-AWS allows five concurrent console sessions per browser profile, and normally only tells you once you have hit the limit. A counter at the foot of the right column turns amber with one slot left and red when full. Open it to see every session — account, role, region, tab group, when it started, how long it has left and how many tabs it still has open — and sign any one of them out to free a slot (its console tabs close with it), sign out every session that has no tab open, or sign out all of them. A jump and the hub it goes through show as one row. A sign-in or jump that needs a session when all five are in use shows the same list first. This needs AWS multi-session support, which is off until you turn it on (in any AWS console tab, your account name at the top right → Turn on multi-session support); while it's off, the counter says so. Session metadata only; cookie contents are never read.
+AWS allows five concurrent console sessions per browser profile, and normally only tells you once you have hit the limit. A counter at the foot of the right column turns amber with one slot left and red when full. Open it to see every session — account, role, region, tab group, when it started, how long it has left and how many tabs it still has open — and sign any one of them out to free a slot (its console tabs close with it), sign out every session that has no tab open, or sign out all of them. A hub and each session jumped through it get their own row, the jumps nested beneath the hub. A sign-in or jump that needs a session when all five are in use shows the same list first. This needs AWS multi-session support, which is off until you turn it on (in any AWS console tab, your account name at the top right → Turn on multi-session support); while it's off, the counter says so. Session metadata only; cookie contents are never read.
 
 • Clear AWS sessions
 One click signs you out of your AWS console sessions by clearing aws.amazon.com authentication cookies (your console favourites and settings are kept). Sessions held elsewhere — an IAM Identity Center portal on awsapps.com, for instance — are outside the extension's reach and stay signed in.

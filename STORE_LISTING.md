@@ -40,6 +40,16 @@ gives every row a star, a service deep-link, and a one-click sign-in,
 and gives every open console tab a colour-coded favicon plus an
 account name in the title.
 
+NEW IN 1.11.0
+
+• One row per session in the Active AWS sessions panel — a jump used
+to fold its hub and the sessions reached through it into a single row,
+so a hub with more than one jump could push sessions out of sight. Now
+every session has its own row: a hub is marked "hub · N jumps" and each
+jump sits indented beneath it, so the rows always match the "N of 5"
+count. Sign a single session out on its own, or a hub takes its jumps
+with it and highlights them on the confirm.
+
 NEW IN 1.10.0
 
 • Know when a sign-in has gone stale — once your sign-in has expired, a
@@ -83,9 +93,9 @@ AWS leaves off until you turn it on. When it's off, the counter reads
 nothing.
 • Jumps follow the new-tab rule — ⌘/Ctrl-click or middle-click on a
 jump opens it in a new tab, like any role.
-• The sessions panel shows a jump and its hub as one row and signs
-them out together; "Sign out idle" no longer counts a hub as idle
-while its jumps are in use.
+• The sessions panel signs a hub and the sessions jumped through it
+out together; "Sign out idle" no longer counts a hub as idle while
+its jumps are in use.
 • Fixes — console tabs stay in their region in the first minutes after
 a sign-in too; Account Names and Tags point out lines they can't read
 instead of dropping them; a tab title keeps its account prefix once;
@@ -239,7 +249,7 @@ full. Open it to see every session — account, role, region, tab group,
 when it started, how long it has left and how many tabs it still has
 open — and sign any one of them out to free a slot (its console tabs
 close with it), sign out every session that has no tab open, or sign
-out all of them. A jump and the hub it goes through show as one row. A
+out all of them. A hub and each session jumped through it get their own row. A
 sign-in or jump that needs a session when all five are in use shows
 the same list first. This needs AWS multi-session support, which is
 off until you turn it on (in any AWS console tab, your account name at
@@ -347,7 +357,7 @@ package).
 | Screenshot 1 | 1280 × 800 | `store-assets/screenshot-1-main.png` | Role picker — filter rows, the Sets column, Open on roles already signed in |
 | Screenshot 2 | 1280 × 800 | `store-assets/screenshot-2-sets.png` | Launch Sets panel — sets in order, archive, open |
 | Screenshot 3 | 1280 × 800 | `store-assets/screenshot-3-room.png` | A set that won't fit — sign sessions out from the list, Open waits for room |
-| Screenshot 4 | 1280 × 800 | `store-assets/screenshot-4-sessions.png` | Active AWS sessions — a jump as one row; sign out one, the idle ones, or all |
+| Screenshot 4 | 1280 × 800 | `store-assets/screenshot-4-sessions.png` | Active AWS sessions — one row per session, a hub's jumps nested beneath it; sign out one, the idle ones, or all |
 | Screenshot 5 | 1280 × 800 | `store-assets/screenshot-5-dark.png` | Dark theme — a filter row's +N pop-out |
 | Small promo tile (optional) | 440 × 280 PNG | ✅ `store-assets/promo-small-440x280.png` | Icon + wordmark over the filter rows |
 | Marquee promo tile (optional) | 1400 × 560 PNG | ✅ `store-assets/promo-marquee-1400x560.png` | Wordmark + tagline beside the role picker |
